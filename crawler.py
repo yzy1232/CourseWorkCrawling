@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any, Iterable
 
 import requests
@@ -87,6 +88,149 @@ def get_current_user_id(session: requests.Session) -> Any:
     if isinstance(data, dict):
         return data.get("id")
     return None
+
+
+def _course_name(it: dict) -> str:
+    for k in ("name", "course_name", "title"):
+        v = it.get(k)
+        if v:
+            return str(v).strip()
+    return f"course_{it.get('id')}"
+
+
+def list_courses(session: requests.Session, user_id: Any = None) -> list[dict]:
+    """拉取“我的课程”，返回 [{id, name, raw}]，用于 id<=>课程名 映射。
+
+    实测 SPA 用 /api/user/{uid}/courses 取我的课程（需内部数字 id）。
+    不同版本端点略有差异，这里做多路兼容回退，并自动翻页。
+    """
+    if user_id is None:
+        user_id = get_current_user_id(session)
+
+    candidates: list[str] = []
+    if user_id is not None:
+        candidates += [
+            f"api/user/{user_id}/courses",
+            f"api/users/{user_id}/courses",
+        ]
+    candidates += [
+        "api/my-courses",
+        "api/courses",
+        "api/course/my-courses",
+    ]
+
+    max_pages = 100
+    last_err: Exception | None = None
+    for path in candidates:
+        seen: set[Any] = set()
+        out: list[dict] = []
+        try:
+            for page in range(1, max_pages + 1):
+                data = _get_json(
+                    session,
+                    path,
+                    page=page,
+                    page_size=100,
+                    pageSize=100,
+                    pageIndex=page,
+                )
+                items = _extract_course_list(data)
+                if not items:
+                    break
+                new_in_page = 0
+                for it in items:
+                    cid = it.get("id") or it.get("course_id")
+                    if cid is None or cid in seen:
+                        continue
+                    seen.add(cid)
+                    new_in_page += 1
+                    out.append(
+                        {"id": cid, "name": _course_name(it), "raw": it}
+                    )
+                if new_in_page == 0:
+                    break
+                total = _extract_total(data)
+                if total is not None and len(out) >= total:
+                    break
+            if out:
+                return out
+        except ApiError as exc:
+            last_err = exc
+            continue
+    if last_err:
+        raise last_err
+    return []
+
+
+def _extract_course_list(data: Any) -> list[dict]:
+    """从各种响应包裹结构里取出课程数组。"""
+    if isinstance(data, list):
+        return [x for x in data if isinstance(x, dict)]
+    if isinstance(data, dict):
+        for key in ("courses", "course_list", "data", "list", "items", "results"):
+            val = data.get(key)
+            if isinstance(val, list):
+                return [x for x in val if isinstance(x, dict)]
+            if isinstance(val, dict):
+                inner = _extract_course_list(val)
+                if inner:
+                    return inner
+    return []
+
+
+def _first(d: dict, *keys: str) -> Any:
+    for k in keys:
+        v = d.get(k)
+        if v not in (None, ""):
+            return v
+    return None
+
+
+def homework_status(raw: dict, submission: dict | None = None) -> dict:
+    """从作业原始 JSON（+可选的“我的提交”）归一化出提交状态。
+
+    返回 {submitted: bool, submit_time, deadline, score, score_status, is_overdue}。
+    TronClass 不同版本字段名差异较大，这里把常见写法都覆盖一遍；
+    最终是否已交以“拿到提交记录”优先，原始标志位兜底。
+    """
+    submit_time = _first(
+        submission or {}, "submitted_at", "submit_time", "created_at"
+    )
+    submitted = bool(submit_time) or bool(
+        submission and (
+            submission.get("uploads")
+            or submission.get("id")
+            or submission.get("submission_uploads")
+        )
+    )
+    if not submitted:
+        flag = _first(
+            raw,
+            "is_submitted",
+            "submitted",
+            "has_submitted",
+        )
+        if isinstance(flag, bool):
+            submitted = flag
+        status = str(_first(raw, "submit_status", "submitStatus", "status") or "")
+        if status and status not in ("not_submitted", "unsubmitted", "0", "none"):
+            if any(s in status for s in ("submit", "已交", "done", "completed", "finished")):
+                submitted = True
+
+    deadline = _first(
+        raw, "end_time", "deadline", "due_date", "close_time", "endTime"
+    )
+    score = _first(raw, "score", "final_score", "grade")
+    if submission and score is None:
+        score = _first(submission, "score", "final_score", "grade")
+
+    return {
+        "submitted": submitted,
+        "submit_time": submit_time,
+        "deadline": deadline,
+        "score": score,
+        "score_status": _first(raw, "score_status", "scoreStatus"),
+    }
 
 
 def _iter_homework_pages(
@@ -278,3 +422,132 @@ def get_homework_detail(session: requests.Session, homework_id: Any) -> dict:
     if last_err:
         raise last_err
     return {}
+
+
+# ---------- 提交作业 ----------
+
+class SubmitError(RuntimeError):
+    pass
+
+
+def _csrf_token(session: requests.Session) -> str | None:
+    """TronClass 的写操作要带 CSRF token，取自登录后下发的 Cookie。
+
+    常见 Cookie 名：XSRF-TOKEN（值即 token，请求头用 X-XSRF-TOKEN 回带）。
+    """
+    for name in ("XSRF-TOKEN", "csrf_token", "CSRF-TOKEN", "X-CSRF-TOKEN"):
+        val = session.cookies.get(name)
+        if val:
+            return val
+    return None
+
+
+def _write_headers(session: requests.Session) -> dict:
+    headers = dict(_JSON_HEADERS)
+    token = _csrf_token(session)
+    if token:
+        headers["X-XSRF-TOKEN"] = token
+        headers["X-CSRF-TOKEN"] = token
+    return headers
+
+
+def upload_file(session: requests.Session, file_path: str) -> dict:
+    """上传单个文件，返回 TronClass 的 upload 对象（含 id/name/size）。
+
+    实测上传端点为 POST /api/uploads（multipart/form-data，字段名 file），
+    返回 {id, name, size, ...}。兼容若干历史端点。
+    """
+    path = os.path.abspath(file_path)
+    if not os.path.isfile(path):
+        raise SubmitError(f"文件不存在：{path}")
+    fname = os.path.basename(path)
+
+    candidates = ["api/uploads", "api/upload", "api/uploads/blob"]
+    last_err: Exception | None = None
+    for ep in candidates:
+        url = f"{BASE_URL}/{ep}"
+        try:
+            with open(path, "rb") as fh:
+                resp = session.post(
+                    url,
+                    files={"file": (fname, fh)},
+                    headers=_write_headers(session),
+                    timeout=120,
+                )
+        except OSError as exc:
+            raise SubmitError(f"读取文件失败：{exc}") from exc
+        if resp.status_code == 404:
+            last_err = SubmitError(f"上传端点不存在 (404)：{url}")
+            continue
+        if resp.status_code in (401, 403):
+            raise SubmitError(f"上传未授权 ({resp.status_code})：登录态或 CSRF 失效")
+        if resp.status_code not in (200, 201):
+            last_err = SubmitError(f"上传失败 HTTP {resp.status_code}：{resp.text[:200]}")
+            continue
+        try:
+            data = resp.json()
+        except ValueError as exc:
+            raise SubmitError(f"上传响应不是 JSON：{url}") from exc
+        # 取出 upload 对象（可能裹在 data/upload 里）
+        obj = data
+        if isinstance(data, dict):
+            obj = data.get("upload") or data.get("data") or data
+        if isinstance(obj, dict) and (obj.get("id") is not None):
+            return obj
+        last_err = SubmitError(f"上传响应缺少 id：{str(data)[:200]}")
+    if last_err:
+        raise last_err
+    raise SubmitError("上传失败：所有端点均不可用")
+
+
+def submit_homework(
+    session: requests.Session,
+    homework_id: Any,
+    upload_ids: list[Any],
+    *,
+    comment: str = "",
+) -> dict:
+    """提交作业：把已上传的附件 id 关联到作业并提交。
+
+    ⚠ 这是一个写操作，会真实改变服务器上的提交状态，不可自动撤销。
+    调用方必须在确认后才调用本函数。
+
+    实测端点为 POST /api/course/{?}/homework/{id}/submissions 或
+    /api/activities/{id}/submissions，body 携带 upload ids。
+    不同版本字段名不一，这里同时带 uploads / upload_ids 两种写法。
+    """
+    if not upload_ids:
+        raise SubmitError("没有可提交的附件")
+
+    payload = {
+        "uploads": list(upload_ids),
+        "upload_ids": list(upload_ids),
+        "comment": comment,
+        "is_draft": False,
+    }
+    candidates = [
+        f"api/activities/{homework_id}/submissions",
+        f"api/homework-activities/{homework_id}/submissions",
+        f"api/homework/{homework_id}/submissions",
+    ]
+    last_err: Exception | None = None
+    for ep in candidates:
+        url = f"{BASE_URL}/{ep}"
+        resp = session.post(
+            url, json=payload, headers=_write_headers(session), timeout=60
+        )
+        if resp.status_code == 404:
+            last_err = SubmitError(f"提交端点不存在 (404)：{url}")
+            continue
+        if resp.status_code in (401, 403):
+            raise SubmitError(f"提交未授权 ({resp.status_code})：登录态或 CSRF 失效")
+        if resp.status_code not in (200, 201):
+            last_err = SubmitError(f"提交失败 HTTP {resp.status_code}：{resp.text[:200]}")
+            continue
+        try:
+            return resp.json() if resp.text else {"ok": True}
+        except ValueError:
+            return {"ok": True}
+    if last_err:
+        raise last_err
+    raise SubmitError("提交失败：所有端点均不可用")

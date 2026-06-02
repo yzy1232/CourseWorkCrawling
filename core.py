@@ -14,10 +14,15 @@ from attachments import extract_attachments
 from auth import login
 from crawler import (
     ApiError,
+    SubmitError,
     get_current_user_id,
     get_homework_detail,
     get_my_submission,
+    homework_status,
+    list_courses,
     list_homeworks,
+    submit_homework,
+    upload_file,
     verify_logged_in,
 )
 from downloader import download_file, sanitize, write_manifest
@@ -110,6 +115,7 @@ def run_download(
 
         # 我的提交附件
         submit_atts: list[dict] = []
+        sub: dict = {}
         if download_submissions:
             try:
                 sub = get_my_submission(session, hw["id"], user_id)
@@ -119,7 +125,14 @@ def run_download(
                 log(f"  取提交失败: {exc}")
 
         hw_dir = output_root / f"{idx:02d}_{sanitize(title)}"
-        rec = {"id": hw["id"], "title": title, "assignment": [], "submission": []}
+        status = homework_status(hw["raw"], sub or None)
+        rec = {
+            "id": hw["id"],
+            "title": title,
+            "assignment": [],
+            "submission": [],
+            "status": status,
+        }
 
         rec["assignment"] = _download_group(
             session, assign_atts, hw_dir / "题目附件", list_only, log
@@ -182,5 +195,84 @@ def _flatten_for_manifest(records: list[dict]) -> list[dict]:
             atts.append({**a, "kind": "assignment"})
         for s in r["submission"]:
             atts.append({**s, "kind": "submission"})
-        out.append({"id": r["id"], "title": r["title"], "attachments": atts})
+        out.append({
+            "id": r["id"],
+            "title": r["title"],
+            "status": r.get("status"),
+            "attachments": atts,
+        })
     return out
+
+
+def get_courses(
+    username: str,
+    password: str,
+    *,
+    session: requests.Session | None = None,
+    log: Logger = _noop,
+) -> list[dict]:
+    """登录并返回“我的课程”列表 [{id, name, raw}]，用于 id<=>课程名 映射。"""
+    if session is None:
+        session = authenticate(username, password, log=log)
+    user_id = getattr(session, "user_id", None) or get_current_user_id(session)
+    courses = list_courses(session, user_id)
+    log(f"共 {len(courses)} 门课程")
+    return courses
+
+
+def list_unsubmitted(
+    username: str,
+    password: str,
+    course_id: str,
+    *,
+    session: requests.Session | None = None,
+    log: Logger = _noop,
+) -> list[dict]:
+    """返回该课程中“未提交”的作业概览 [{id, title, deadline}]。"""
+    result = run_download(
+        username, password, course_id,
+        download_submissions=True, list_only=True,
+        session=session, log=log,
+    )
+    out = []
+    for r in result["homeworks"]:
+        st = r.get("status") or {}
+        if not st.get("submitted"):
+            out.append({
+                "id": r["id"],
+                "title": r["title"],
+                "deadline": st.get("deadline"),
+            })
+    return out
+
+
+def submit_homework_files(
+    username: str,
+    password: str,
+    homework_id: str,
+    files: list[str],
+    *,
+    comment: str = "",
+    session: requests.Session | None = None,
+    log: Logger = _noop,
+) -> dict:
+    """上传文件并提交到指定作业。
+
+    ⚠ 写操作：会真实改变服务器上的提交状态。调用方必须在确认后才调用。
+    返回 {homework_id, uploads:[{id,name}], response}。
+    """
+    if session is None:
+        session = authenticate(username, password, log=log)
+
+    uploads: list[dict] = []
+    for fp in files:
+        log(f"上传 {fp} ...")
+        up = upload_file(session, fp)
+        uploads.append({"id": up.get("id"), "name": up.get("name")})
+        log(f"  ✓ 已上传 (id={up.get('id')})")
+
+    upload_ids = [u["id"] for u in uploads if u["id"] is not None]
+    log(f"提交作业 {homework_id}（{len(upload_ids)} 个附件）...")
+    resp = submit_homework(session, homework_id, upload_ids, comment=comment)
+    log("✓ 提交完成")
+    return {"homework_id": homework_id, "uploads": uploads, "response": resp}

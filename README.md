@@ -41,6 +41,28 @@ python main.py --no-submissions      # 只下题目附件，不下我的提交
 python main.py --list-only           # 仅列出附件与链接，不下载
 ```
 
+列出我的全部课程（id ↔ 课程名 映射）：
+
+```bash
+python main.py --list-courses        # 打印 课程ID  课程名
+```
+
+汇总某课程尚未提交的作业：
+
+```bash
+python main.py --course 53472 --unsubmitted
+```
+
+提交作业（写操作，默认会二次确认）：
+
+```bash
+python main.py --submit 436194 --files 实验报告.docx          # 单文件
+python main.py --submit 436194 --files a.docx b.pdf          # 多文件
+python main.py --submit 436194 --files a.docx --comment "见附件" --yes  # 跳过确认
+```
+
+> ⚠ `--submit` 会真实改变服务器上的提交状态，不可自动撤销。除非加 `--yes`，否则会先列出待提交文件并要求输入 `y` 确认。
+
 图形界面：
 
 ```bash
