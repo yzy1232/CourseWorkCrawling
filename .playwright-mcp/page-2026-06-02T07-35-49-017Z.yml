@@ -1,0 +1,367 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e4]:
+      - link "学在城院" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img [ref=e6]
+        - generic [ref=e7]: 学在城院
+      - listitem [ref=e8]:
+        - link "公开课" [ref=e9] [cursor=pointer]:
+          - /url: /public-course#/all
+      - listitem [ref=e10]:
+        - link "资源" [ref=e11] [cursor=pointer]:
+          - /url: /shared-resource/search
+      - listitem [ref=e12]:
+        - link "题库" [ref=e13] [cursor=pointer]:
+          - /url: /campus-subject-lib/
+      - list [ref=e14]:
+        - listitem [ref=e15]:
+          - link "我的主页 " [ref=e16] [cursor=pointer]:
+            - /url: javascript:void(0)
+            - text: 我的主页
+            - generic [ref=e17]: 
+        - listitem [ref=e18]
+        - listitem [ref=e19]:
+          - generic [ref=e21]: 
+        - listitem [ref=e22]:
+          - link "" [ref=e25] [cursor=pointer]:
+            - /url: javascript:void(0)
+            - generic [ref=e26]: 
+        - listitem [ref=e27]:
+          - link "" [ref=e28] [cursor=pointer]:
+            - /url: javascript:void(0)
+            - generic [ref=e29]: 
+        - listitem [ref=e30]
+        - listitem [ref=e31]:
+          - link "虞子琰 " [ref=e32] [cursor=pointer]:
+            - /url: javascript:void(0)
+            - img [ref=e35]
+            - generic [ref=e36]: 虞子琰
+            - generic [ref=e37]: 
+          - text: 
+    - generic [ref=e38]:
+      - generic [ref=e40]:
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]: 
+            - generic [ref=e44]: 返回
+          - link "软件测试" [ref=e45] [cursor=pointer]:
+            - /url: /course/53472/content#/
+          - img [ref=e47]
+        - generic "2025-2026 2025-2026第2学期 计算机与计算科学学院" [ref=e50]:
+          - generic [ref=e51]: 2025-2026
+          - generic [ref=e52]: 2025-2026第2学期
+          - generic [ref=e53]: 计算机与计算科学学院
+        - generic [ref=e54]:
+          - generic [ref=e55]:
+            - text: 授课教师
+            - img [ref=e60] [cursor=pointer]
+          - generic [ref=e62]:
+            - generic [ref=e64]:
+              - generic [ref=e65]: 
+              - link "班级成员" [ref=e66] [cursor=pointer]:
+                - /url: /course/53472/enrollments
+            - generic [ref=e68]:
+              - generic [ref=e69]: 
+              - link "课程信息" [ref=e70] [cursor=pointer]:
+                - /url: /course/53472/outline
+            - generic [ref=e72]:
+              - generic [ref=e73]: 
+              - link "点名记录" [ref=e74] [cursor=pointer]:
+                - /url: /course/53472/rollcall
+            - generic [ref=e76]:
+              - generic [ref=e77]: 
+              - link "课堂报告" [ref=e78] [cursor=pointer]:
+                - /url: /course/53472/inclass-report#/
+            - generic [ref=e80]:
+              - generic [ref=e81]: 
+              - link "成绩" [ref=e82] [cursor=pointer]:
+                - /url: /course/53472/score
+            - generic [ref=e84]:
+              - generic [ref=e85]: 
+              - link "学习分析" [ref=e86] [cursor=pointer]:
+                - /url: /course/53472/my-stat
+            - generic [ref=e87]:
+              - generic [ref=e88]: 
+              - link "教学评价" [ref=e89] [cursor=pointer]:
+                - /url: /plugin/1/courses/53472/review
+      - generic [ref=e91]:
+        - generic [ref=e93]:
+          - generic [ref=e95]:
+            - generic [ref=e98]:
+              - generic [ref=e99]: 当前学习进度
+              - generic [ref=e100]: "63.6"
+              - text: "%"
+              - generic [ref=e101]: ", 上次学习到"
+              - generic [ref=e102]: 第三章课后习题
+            - generic [ref=e104] [cursor=pointer]: 继续学习
+          - generic [ref=e105]:
+            - link "章节" [ref=e108] [cursor=pointer]:
+              - /url: /course/53472/content
+            - link "知识图谱" [ref=e111] [cursor=pointer]:
+              - /url: /course/53472/knowledge-graph
+            - link "公告" [ref=e114] [cursor=pointer]:
+              - /url: /course/53472/bulletin
+            - link "课件" [ref=e117] [cursor=pointer]:
+              - /url: /course/53472/courseware
+            - link "课堂直录播" [ref=e120] [cursor=pointer]:
+              - /url: /course/53472/live_record
+            - link "作业" [ref=e123] [cursor=pointer]:
+              - /url: /course/53472/homework
+            - link "测试" [ref=e127] [cursor=pointer]:
+              - /url: /course/53472/exam
+            - link "讨论" [ref=e130] [cursor=pointer]:
+              - /url: /course/53472/forum
+            - link "问卷" [ref=e133] [cursor=pointer]:
+              - /url: /course/53472/questionnaire
+            - link "互动" [ref=e136] [cursor=pointer]:
+              - /url: /course/53472/classroom
+            - link "分组学习" [ref=e139] [cursor=pointer]:
+              - /url: /course/53472/group-set
+            - link "笔记" [ref=e142] [cursor=pointer]:
+              - /url: /course/53472/note
+        - generic [ref=e146]:
+          - generic [ref=e147]:
+            - generic [ref=e150]:
+              - text: 排序：
+              - link "章节顺序" [ref=e151] [cursor=pointer]:
+                - /url: javascript:void(0)
+                - text: 章节顺序
+              - link "正序" [ref=e153] [cursor=pointer]:
+                - /url: javascript:void(0)
+                - text: 正序
+            - generic [ref=e156]:
+              - generic [ref=e157]: 作业名称
+              - generic [ref=e158]: 作业形式
+              - generic [ref=e159]: 状态
+              - generic [ref=e160]: 成绩
+            - generic [ref=e161]:
+              - generic [ref=e163] [cursor=pointer]:
+                - generic "第三章课后习题" [ref=e165]
+                - generic [ref=e168]: 已结束
+                - generic [ref=e170]: "章节/单元: 无指定章节"
+              - generic [ref=e173] [cursor=pointer]:
+                - img [ref=e175]
+                - generic [ref=e177]: 个人作业
+              - generic [ref=e180] [cursor=pointer]: 已交
+              - generic [ref=e182] [cursor=pointer]: 不公布
+            - generic [ref=e186]:
+              - generic [ref=e188] [cursor=pointer]:
+                - generic "自动化测试 课后实验" [ref=e190]
+                - generic [ref=e193]: "结束时间: 2026-06-11 23:59"
+                - generic [ref=e195]: "章节/单元: 无指定章节"
+              - generic [ref=e198] [cursor=pointer]:
+                - img [ref=e200]
+                - generic [ref=e202]: 个人作业
+              - generic [ref=e205] [cursor=pointer]: 已交
+              - generic [ref=e207] [cursor=pointer]: 不公布
+              - generic [ref=e212]: 去交作业
+            - generic [ref=e213]:
+              - generic [ref=e215] [cursor=pointer]:
+                - generic "性能测试 课后习题" [ref=e217]
+                - generic [ref=e220]: "结束时间: 2026-06-04 23:59"
+                - generic [ref=e222]: "章节/单元: 无指定章节"
+              - generic [ref=e225] [cursor=pointer]:
+                - img [ref=e227]
+                - generic [ref=e229]: 个人作业
+              - generic [ref=e232] [cursor=pointer]: 已交
+              - generic [ref=e234] [cursor=pointer]: 不公布
+              - generic [ref=e239]: 去交作业
+            - generic [ref=e240]:
+              - generic [ref=e242] [cursor=pointer]:
+                - generic "小组作业：测试执行" [ref=e244]
+                - generic [ref=e247]: "结束时间: 2026-06-04 23:59"
+                - generic [ref=e249]: "章节/单元: 无指定章节"
+              - generic [ref=e251] [cursor=pointer]:
+                - generic [ref=e252]:
+                  - img [ref=e254]
+                  - generic [ref=e256]: 分组作业
+                - generic "课程大作业" [ref=e257]: ( 课程大作业 )
+              - generic [ref=e260] [cursor=pointer]: 已交
+              - generic [ref=e262] [cursor=pointer]: 不公布
+              - generic [ref=e267]: 去交作业
+            - generic [ref=e268]:
+              - generic [ref=e270] [cursor=pointer]:
+                - generic "软件评审技术-习题" [ref=e272]
+                - generic [ref=e275]: 已结束
+                - generic [ref=e277]: "章节/单元: 无指定章节"
+              - generic [ref=e280] [cursor=pointer]:
+                - img [ref=e282]
+                - generic [ref=e284]: 个人作业
+              - generic [ref=e287] [cursor=pointer]: 已交
+              - generic [ref=e289] [cursor=pointer]: 不公布
+            - generic [ref=e293]:
+              - generic [ref=e295] [cursor=pointer]:
+                - generic "小组作业：软件测试综合实践（2）测试用例设计" [ref=e297]
+                - generic [ref=e300]: 已结束
+                - generic [ref=e302]: "章节/单元: 无指定章节"
+              - generic [ref=e304] [cursor=pointer]:
+                - generic [ref=e305]:
+                  - img [ref=e307]
+                  - generic [ref=e309]: 分组作业
+                - generic "课程大作业" [ref=e310]: ( 课程大作业 )
+              - generic [ref=e313] [cursor=pointer]: 已交
+              - generic [ref=e315] [cursor=pointer]: 不公布
+            - generic [ref=e319]:
+              - generic [ref=e321] [cursor=pointer]:
+                - generic "性能测试 课后实验" [ref=e323]
+                - generic [ref=e326]: 已结束
+                - generic [ref=e328]: "章节/单元: 无指定章节"
+              - generic [ref=e331] [cursor=pointer]:
+                - img [ref=e333]
+                - generic [ref=e335]: 个人作业
+              - generic [ref=e338] [cursor=pointer]: 已交
+              - generic [ref=e340] [cursor=pointer]: 不公布
+            - generic [ref=e344]:
+              - generic [ref=e346] [cursor=pointer]:
+                - generic "接口测试课后作业" [ref=e348]
+                - generic [ref=e351]: 已结束
+                - generic [ref=e353]: "章节/单元: 无指定章节"
+              - generic [ref=e356] [cursor=pointer]:
+                - img [ref=e358]
+                - generic [ref=e360]: 个人作业
+              - generic [ref=e363] [cursor=pointer]: 已交
+              - generic [ref=e365] [cursor=pointer]: 不公布
+            - generic [ref=e369]:
+              - generic [ref=e371] [cursor=pointer]:
+                - generic "接口测试" [ref=e373]
+                - generic [ref=e376]: 已结束
+                - generic [ref=e378]: "章节/单元: 无指定章节"
+              - generic [ref=e381] [cursor=pointer]:
+                - img [ref=e383]
+                - generic [ref=e385]: 个人作业
+              - generic [ref=e388] [cursor=pointer]: 已交
+              - generic [ref=e390] [cursor=pointer]: 不公布
+            - generic [ref=e394]:
+              - generic [ref=e396] [cursor=pointer]:
+                - generic "小组作业：测试需求和测试计划-演示ppt" [ref=e398]
+                - generic [ref=e401]: 已结束
+                - generic [ref=e403]: "章节/单元: 无指定章节"
+              - generic [ref=e405] [cursor=pointer]:
+                - generic [ref=e406]:
+                  - img [ref=e408]
+                  - generic [ref=e410]: 分组作业
+                - generic "课程大作业" [ref=e411]: ( 课程大作业 )
+              - generic [ref=e414] [cursor=pointer]: 已交
+              - generic [ref=e416] [cursor=pointer]: 不公布
+            - generic [ref=e420]:
+              - generic [ref=e422] [cursor=pointer]:
+                - generic "小组作业：软件测试综合实践（1）测试需求和测试计划" [ref=e424]
+                - generic [ref=e427]: 已结束
+                - generic [ref=e429]: "章节/单元: 无指定章节"
+              - generic [ref=e431] [cursor=pointer]:
+                - generic [ref=e432]:
+                  - img [ref=e434]
+                  - generic [ref=e436]: 分组作业
+                - generic "课程大作业" [ref=e437]: ( 课程大作业 )
+              - generic [ref=e440] [cursor=pointer]: 已交
+              - generic [ref=e442] [cursor=pointer]: 未评分
+            - generic [ref=e446]:
+              - generic [ref=e448] [cursor=pointer]:
+                - generic "课后作业1" [ref=e450]
+                - generic [ref=e453]: 已结束
+                - generic [ref=e455]: "章节/单元: 无指定章节"
+              - generic [ref=e458] [cursor=pointer]:
+                - img [ref=e460]
+                - generic [ref=e462]: 个人作业
+              - generic [ref=e465] [cursor=pointer]: 已交
+              - generic [ref=e467] [cursor=pointer]: 未评分
+            - generic [ref=e471]:
+              - generic [ref=e473] [cursor=pointer]:
+                - generic "白盒测试课后实验2" [ref=e475]
+                - generic [ref=e478]: 已结束
+                - generic [ref=e480]: "章节/单元: 无指定章节"
+              - generic [ref=e483] [cursor=pointer]:
+                - img [ref=e485]
+                - generic [ref=e487]: 个人作业
+              - generic [ref=e490] [cursor=pointer]: 已交
+              - generic [ref=e492] [cursor=pointer]: 不公布
+            - generic [ref=e496]:
+              - generic [ref=e498] [cursor=pointer]:
+                - generic "随堂作业：小组会议纪要（1）" [ref=e500]
+                - generic [ref=e503]: 已结束
+                - generic [ref=e505]: "章节/单元: 无指定章节"
+              - generic [ref=e507] [cursor=pointer]:
+                - generic [ref=e508]:
+                  - img [ref=e510]
+                  - generic [ref=e512]: 分组作业
+                - generic "课程大作业" [ref=e513]: ( 课程大作业 )
+              - generic [ref=e516] [cursor=pointer]: 已交
+              - generic [ref=e518] [cursor=pointer]: 不公布
+            - generic [ref=e522]:
+              - generic [ref=e524] [cursor=pointer]:
+                - generic "白盒测试课后实验1" [ref=e526]
+                - generic [ref=e529]: 已结束
+                - generic [ref=e531]: "章节/单元: 无指定章节"
+              - generic [ref=e534] [cursor=pointer]:
+                - img [ref=e536]
+                - generic [ref=e538]: 个人作业
+              - generic [ref=e541] [cursor=pointer]: 已交
+              - generic [ref=e543] [cursor=pointer]: 不公布
+            - generic [ref=e547]:
+              - generic [ref=e549] [cursor=pointer]:
+                - generic "Junit单元测试" [ref=e551]
+                - generic [ref=e554]: 已结束
+                - generic [ref=e556]: "章节/单元: 无指定章节"
+              - generic [ref=e559] [cursor=pointer]:
+                - img [ref=e561]
+                - generic [ref=e563]: 个人作业
+              - generic [ref=e566] [cursor=pointer]: 已交
+              - generic [ref=e568] [cursor=pointer]: 不公布
+            - generic [ref=e572]:
+              - generic [ref=e574] [cursor=pointer]:
+                - generic "第二章习题" [ref=e576]
+                - generic [ref=e579]: 已结束
+                - generic [ref=e581]: "章节/单元: 无指定章节"
+              - generic [ref=e584] [cursor=pointer]:
+                - img [ref=e586]
+                - generic [ref=e588]: 个人作业
+              - generic [ref=e591] [cursor=pointer]: 已交
+              - generic [ref=e593] [cursor=pointer]: 不公布
+            - generic [ref=e597]:
+              - generic [ref=e599] [cursor=pointer]:
+                - generic "小组作业1：测试项目准备" [ref=e601]
+                - generic [ref=e604]: 已结束
+                - generic [ref=e606]: "章节/单元: 无指定章节"
+              - generic [ref=e608] [cursor=pointer]:
+                - generic [ref=e609]:
+                  - img [ref=e611]
+                  - generic [ref=e613]: 分组作业
+                - generic "课程大作业" [ref=e614]: ( 课程大作业 )
+              - generic [ref=e617] [cursor=pointer]: 已交
+              - generic [ref=e619] [cursor=pointer]: 不公布
+            - generic [ref=e623]:
+              - generic [ref=e625] [cursor=pointer]:
+                - generic "黑盒测试实验二" [ref=e627]
+                - generic [ref=e630]: 已结束
+                - generic [ref=e632]: "章节/单元: 无指定章节"
+              - generic [ref=e635] [cursor=pointer]:
+                - img [ref=e637]
+                - generic [ref=e639]: 个人作业
+              - generic [ref=e642] [cursor=pointer]: 已交
+              - generic [ref=e644] [cursor=pointer]: 不公布
+            - generic [ref=e648]:
+              - generic [ref=e650] [cursor=pointer]:
+                - generic "黑盒测试实验一" [ref=e652]
+                - generic [ref=e655]: 已结束
+                - generic [ref=e657]: "章节/单元: 无指定章节"
+              - generic [ref=e660] [cursor=pointer]:
+                - img [ref=e662]
+                - generic [ref=e664]: 个人作业
+              - generic [ref=e667] [cursor=pointer]: 已交
+              - generic [ref=e669] [cursor=pointer]: 不公布
+          - list [ref=e675]:
+            - listitem [ref=e676]: "1"
+            - listitem [ref=e677]: "2"
+            - listitem [ref=e678]:
+              - generic [ref=e679]: 下一页 >
+            - listitem [ref=e680]:
+              - generic [ref=e681]: "页码:"
+              - textbox [ref=e682]: "1"
+              - generic [ref=e683] [cursor=pointer]: Go
+    - generic [ref=e686]: Copyright©2003-2018浙大城市学院 浙ICP备：05074421号-16 浙公网安备33010602010295号 学院地址：杭州市湖州街51号/邮编：310015
+  - generic:
+    - generic:
+      - main:
+        - img [ref=e690] [cursor=pointer]
+    - img

@@ -1,0 +1,17 @@
+- generic [ref=e2]:
+  - generic [ref=e4]:
+    - generic "切换登录方式" [ref=e5] [cursor=pointer]
+    - heading "统一身份认证" [level=1] [ref=e7]
+    - generic [ref=e8]:
+      - generic [ref=e9]:
+        - paragraph [ref=e10] [cursor=pointer]: 账号登录
+        - paragraph [ref=e11] [cursor=pointer]: 手机验证码登录
+      - generic [ref=e14]:
+        - textbox "请输入用户名" [ref=e17]
+        - textbox "请输入密码" [ref=e19]
+        - button "登 录" [ref=e20] [cursor=pointer]
+        - generic [ref=e21]:
+          - link "找回密码" [ref=e23] [cursor=pointer]:
+            - /url: http://ims.hzcu.edu.cn:7080/ims/gp.a
+          - generic [ref=e24]: 登录帮助
+  - paragraph [ref=e25]: Copyright© 2013-1 浙大城市学院 技术支持： 信息与教育技术中心 咨询电话：88284366

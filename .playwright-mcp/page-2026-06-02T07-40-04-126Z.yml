@@ -1,0 +1,155 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e4]:
+      - link "学在城院" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img [ref=e6]
+        - generic [ref=e7]: 学在城院
+      - listitem [ref=e8]:
+        - link "公开课" [ref=e9] [cursor=pointer]:
+          - /url: /public-course#/all
+      - listitem [ref=e10]:
+        - link "资源" [ref=e11] [cursor=pointer]:
+          - /url: /shared-resource/search
+      - listitem [ref=e12]:
+        - link "题库" [ref=e13] [cursor=pointer]:
+          - /url: /campus-subject-lib/
+      - list [ref=e14]:
+        - listitem [ref=e15]:
+          - link "我的主页 " [ref=e16] [cursor=pointer]:
+            - /url: javascript:void(0)
+            - text: 我的主页
+            - generic [ref=e17]: 
+        - listitem [ref=e18]
+        - listitem [ref=e19]:
+          - generic [ref=e21]: 
+        - listitem [ref=e22]:
+          - link "" [ref=e25] [cursor=pointer]:
+            - /url: javascript:void(0)
+            - generic [ref=e26]: 
+        - listitem [ref=e27]:
+          - link "" [ref=e28] [cursor=pointer]:
+            - /url: javascript:void(0)
+            - generic [ref=e29]: 
+        - listitem [ref=e30]
+        - listitem [ref=e31]:
+          - link "虞子琰 " [ref=e32] [cursor=pointer]:
+            - /url: javascript:void(0)
+            - img [ref=e35]
+            - generic [ref=e36]: 虞子琰
+            - generic [ref=e37]: 
+          - text: 
+    - generic [ref=e38]:
+      - generic [ref=e40]:
+        - generic [ref=e41]:
+          - generic [ref=e42]:
+            - generic [ref=e43]: 
+            - generic [ref=e44]: 返回
+          - link "软件测试" [ref=e45] [cursor=pointer]:
+            - /url: /course/53472/content#/
+          - img [ref=e47]
+        - generic "2025-2026 2025-2026第2学期 计算机与计算科学学院" [ref=e50]:
+          - generic [ref=e51]: 2025-2026
+          - generic [ref=e52]: 2025-2026第2学期
+          - generic [ref=e53]: 计算机与计算科学学院
+        - generic [ref=e54]:
+          - generic [ref=e55]:
+            - text: 授课教师
+            - img [ref=e60] [cursor=pointer]
+          - generic [ref=e62]:
+            - generic [ref=e64]:
+              - generic [ref=e65]: 
+              - link "班级成员" [ref=e66] [cursor=pointer]:
+                - /url: /course/53472/enrollments
+            - generic [ref=e68]:
+              - generic [ref=e69]: 
+              - link "课程信息" [ref=e70] [cursor=pointer]:
+                - /url: /course/53472/outline
+            - generic [ref=e72]:
+              - generic [ref=e73]: 
+              - link "点名记录" [ref=e74] [cursor=pointer]:
+                - /url: /course/53472/rollcall
+            - generic [ref=e76]:
+              - generic [ref=e77]: 
+              - link "课堂报告" [ref=e78] [cursor=pointer]:
+                - /url: /course/53472/inclass-report#/
+            - generic [ref=e80]:
+              - generic [ref=e81]: 
+              - link "成绩" [ref=e82] [cursor=pointer]:
+                - /url: /course/53472/score
+            - generic [ref=e84]:
+              - generic [ref=e85]: 
+              - link "学习分析" [ref=e86] [cursor=pointer]:
+                - /url: /course/53472/my-stat
+            - generic [ref=e87]:
+              - generic [ref=e88]: 
+              - link "教学评价" [ref=e89] [cursor=pointer]:
+                - /url: /plugin/1/courses/53472/review
+      - generic [ref=e91]:
+        - generic [ref=e93]:
+          - generic [ref=e94]: 
+          - generic [ref=e95]: 返回
+        - generic [ref=e103]:
+          - generic [ref=e105]: 自动化测试 课后实验
+          - generic [ref=e106]:
+            - generic [ref=e107]: 
+            - text: 已交付 （若学生多次提交作业，成绩计算请以评分规则为准）
+          - generic [ref=e108]:
+            - generic [ref=e109] [cursor=pointer]: 作业内容
+            - generic [ref=e110] [cursor=pointer]: 我的作业
+          - generic [ref=e112]:
+            - generic [ref=e113]:
+              - generic [ref=e114]:
+                - generic [ref=e115]: 占成绩比例
+                - generic [ref=e116]: 2.00%
+              - generic [ref=e117]:
+                - generic [ref=e118]: 公布成绩时间
+                - generic [ref=e119]: 不公布
+              - generic [ref=e120]:
+                - generic [ref=e121]: 活动时间
+                - generic [ref=e122]: 结束于2026.06.11 23:59
+              - generic [ref=e123]:
+                - generic [ref=e124]: 作业形式
+                - generic [ref=e125]: 个人作业
+              - generic [ref=e126]:
+                - generic [ref=e127]: 计分规则
+                - generic [ref=e128]: 最高得分
+              - generic [ref=e129]:
+                - generic [ref=e130]: 完成指标
+                - generic [ref=e131]: 提交作业
+            - generic [ref=e132]:
+              - generic [ref=e133]:
+                - generic [ref=e134]:
+                  - generic [ref=e135]: 评分方式
+                  - generic [ref=e136]: (
+                  - generic [ref=e138]: 教师评阅 100.0%
+                  - generic [ref=e139]: )
+                - generic [ref=e142]:
+                  - generic:  
+              - generic [ref=e143]:
+                - generic [ref=e146]: 教师评阅
+                - generic [ref=e147]:
+                  - generic [ref=e148]: 占成绩比例
+                  - generic [ref=e149]: 100.0%
+            - generic [ref=e151]:
+              - generic [ref=e152]:
+                - generic [ref=e153]: 附件名
+                - generic [ref=e154]: 大小
+              - generic [ref=e158] [cursor=pointer]:
+                - generic [ref=e160]:
+                  - generic [ref=e161]: 
+                  - generic [ref=e162]: 实验十 自动化测试(2)
+                  - generic [ref=e163]: .doc
+                - generic [ref=e167]: 4.52 MB
+                - generic [ref=e170]:
+                  - generic [ref=e172]: 
+                  - link "" [ref=e173]:
+                    - /url: /api/uploads/reference/7278710/blob
+                    - generic [ref=e174]: 
+    - generic [ref=e178]: Copyright©2003-2018浙大城市学院 浙ICP备：05074421号-16 浙公网安备33010602010295号 学院地址：杭州市湖州街51号/邮编：310015
+  - generic:
+    - generic:
+      - main:
+        - img [ref=e183] [cursor=pointer]
+    - img
+  - status [ref=e185]
