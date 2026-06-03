@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from pathlib import Path
+from typing import Callable
 from urllib.parse import unquote
 
 import requests
@@ -72,6 +74,110 @@ def download_file(
     except requests.RequestException as exc:
         print(f"      ✗ 下载出错: {exc}")
         return None
+
+
+# 进度回调： (downloaded_bytes, total_bytes) -> None；total 未知时为 0
+ProgressCb = Callable[[int, int], None]
+
+
+def download_file_resumable(
+    session: requests.Session,
+    url: str,
+    dest_dir: Path,
+    fallback_name: str,
+    *,
+    pause_event: "threading.Event | None" = None,
+    cancel_event: "threading.Event | None" = None,
+    on_progress: ProgressCb | None = None,
+) -> Path | None:
+    """带断点续传的流式下载，供下载管理器调用。
+
+    - 文件名确定后，先把数据写入同名的 ``.part`` 临时文件；完整下完才重命名为最终文件。
+    - 若 ``.part`` 已存在，则尝试 ``Range: bytes={existing}-`` 续传；服务器返回 206 时
+      以 ``ab`` 追加，否则（200/不支持 Range）截断重下。
+    - chunk 循环中：``cancel_event`` 置位则保留 ``.part`` 并返回 None（视为暂停/取消，
+      进度不丢）；``pause_event`` 提供且被 clear 时阻塞在 ``wait()`` 直到再次 set。
+    - 每写一块调用 ``on_progress(downloaded, total)``。
+    """
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    if cancel_event is not None and cancel_event.is_set():
+        return None
+
+    # 第一次请求：拿真实文件名（不带 Range，确保能读到 Content-Disposition）
+    try:
+        head = session.get(
+            url, stream=True, timeout=60,
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+    except requests.RequestException as exc:
+        print(f"      ✗ 下载出错: {exc}")
+        return None
+    with head:
+        if head.status_code != 200:
+            print(f"      ✗ HTTP {head.status_code}  {url}")
+            return None
+        name = _filename_from_headers(head) or fallback_name
+        final_path = dest_dir / sanitize(name, fallback_name)
+        part_path = final_path.with_name(final_path.name + ".part")
+        try:
+            total = int(head.headers.get("Content-Length") or 0)
+        except (TypeError, ValueError):
+            total = 0
+
+    existing = part_path.stat().st_size if part_path.exists() else 0
+
+    # 第二次请求：能续传就带 Range
+    headers = {"X-Requested-With": "XMLHttpRequest"}
+    if existing > 0:
+        headers["Range"] = f"bytes={existing}-"
+    try:
+        resp = session.get(url, stream=True, timeout=60, headers=headers)
+    except requests.RequestException as exc:
+        print(f"      ✗ 下载出错: {exc}")
+        return None
+    with resp:
+        if resp.status_code == 206:
+            mode = "ab"
+            downloaded = existing
+            if total == 0:
+                # 206 的 Content-Length 是剩余量，补回已有部分得到总大小
+                try:
+                    total = existing + int(resp.headers.get("Content-Length") or 0)
+                except (TypeError, ValueError):
+                    total = 0
+        elif resp.status_code == 200:
+            mode = "wb"            # 不支持 Range，从头重下
+            downloaded = 0
+            try:
+                total = int(resp.headers.get("Content-Length") or 0)
+            except (TypeError, ValueError):
+                total = 0
+        else:
+            print(f"      ✗ HTTP {resp.status_code}  {url}")
+            return None
+
+        if on_progress:
+            on_progress(downloaded, total)
+        try:
+            with open(part_path, mode) as fh:
+                for chunk in resp.iter_content(chunk_size=64 * 1024):
+                    if cancel_event is not None and cancel_event.is_set():
+                        return None          # 暂停/取消：保留 .part
+                    if pause_event is not None:
+                        pause_event.wait()   # 暂停时阻塞，不中断连接
+                    if chunk:
+                        fh.write(chunk)
+                        downloaded += len(chunk)
+                        if on_progress:
+                            on_progress(downloaded, total)
+        except requests.RequestException as exc:
+            print(f"      ✗ 下载出错: {exc}")
+            return None
+
+    final_path = _dedupe_path(final_path)
+    part_path.replace(final_path)
+    return final_path
 
 
 def _dedupe_path(path: Path) -> Path:

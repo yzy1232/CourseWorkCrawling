@@ -424,6 +424,75 @@ def get_homework_detail(session: requests.Session, homework_id: Any) -> dict:
     return {}
 
 
+# ---------- 课件（课程资料） ----------
+#
+# 经 Playwright 实测：课件并没有独立列表端点，而是和作业同在
+#   GET /api/courses/{course_id}/activities?sub_course_id=0
+# 该端点一次性返回全部活动，每项带 type 字段：
+#   type == "homework" 为作业，type == "material" 为课件（课程资料）。
+# 课件项直接带顶层 uploads:[{id,name,size,allow_download,...}]，
+# 下载仍走 /api/uploads/{id}/blob（会 302 到真实地址，requests 自动跟随）。
+
+def _iter_activities(session: requests.Session, course_id: str) -> list[dict]:
+    """拉取课程的全部活动（作业 + 课件等），返回原始 dict 列表。"""
+    path = f"api/courses/{course_id}/activities"
+    data = _get_json(session, path, sub_course_id=0)
+    return _extract_list(data)
+
+
+def list_coursewares(session: requests.Session, course_id: str) -> list[dict]:
+    """返回课件列表（type == "material"），每项规范化为 {id, title, raw}。"""
+    out: list[dict] = []
+    seen: set[Any] = set()
+    for it in _iter_activities(session, course_id):
+        if it.get("type") != "material":
+            continue
+        cid = _item_key(it)
+        if cid is None or cid in seen:
+            continue
+        seen.add(cid)
+        title = (
+            it.get("title")
+            or it.get("name")
+            or it.get("activity_name")
+            or f"courseware_{cid}"
+        )
+        out.append({"id": cid, "title": str(title).strip(), "raw": it})
+    return out
+
+
+def get_courseware_detail(session: requests.Session, courseware_id: Any) -> dict:
+    """拉取单个课件详情。课件与作业共用活动详情端点。"""
+    return get_homework_detail(session, courseware_id)
+
+
+def get_upload_meta(session: requests.Session, upload_id: Any) -> dict:
+    """取单个文件的元信息，含 allow_download 等字段。失败返回 {}。"""
+    try:
+        data = _get_json(session, f"api/uploads/{upload_id}")
+        return data if isinstance(data, dict) else {}
+    except ApiError:
+        return {}
+
+
+def get_upload_pdf_url(session: requests.Session, upload_id: Any) -> str | None:
+    """取文件的 PDF 兜底地址（转码预览）。
+
+    实测 GET /api/uploads/{id}/preview 返回 {extension, name, url}，
+    其中 url 指向 download/processed/<key>.pdf，即不可下载课件的兜底路径。
+    取不到则返回 None。
+    """
+    try:
+        data = _get_json(session, f"api/uploads/{upload_id}/preview")
+    except ApiError:
+        return None
+    if isinstance(data, dict):
+        url = data.get("url")
+        if isinstance(url, str) and url:
+            return url
+    return None
+
+
 # ---------- 提交作业 ----------
 
 class SubmitError(RuntimeError):

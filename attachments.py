@@ -92,6 +92,7 @@ def extract_attachments(detail: dict) -> list[dict]:
                 "url": url,
                 "size": obj.get("size") or obj.get("file_size"),
                 "source_key": source_key,
+                "allow_download": obj.get("allow_download"),
             }
         )
 

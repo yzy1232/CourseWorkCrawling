@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 
 from auth import LoginError
 from core import (
+    download_coursewares,
     get_courses,
     list_unsubmitted,
     run_download,
@@ -45,12 +46,20 @@ def parse_args() -> argparse.Namespace:
         "--list-only", action="store_true", help="只列出作业与附件，不实际下载"
     )
     p.add_argument(
+        "--parallel", type=int, default=4, metavar="N",
+        help="并行下载的附件数（1-8，默认 4）",
+    )
+    p.add_argument(
         "--list-courses", action="store_true",
         help="列出我的全部课程及其 ID（id<=>课程名 映射），不下载",
     )
     p.add_argument(
         "--unsubmitted", action="store_true",
         help="只汇总该课程中尚未提交的作业，不下载",
+    )
+    p.add_argument(
+        "--coursewares", action="store_true",
+        help="下载该课程的课件（课程资料）附件，而非作业",
     )
     p.add_argument(
         "--submit", metavar="HW_ID",
@@ -159,6 +168,29 @@ def main() -> int:
             print(f"  [{it['id']}] {it['title']}  截止: {dl}")
         return 0
 
+    # --- 课件下载 ---
+    if args.coursewares:
+        try:
+            result = download_coursewares(
+                username, password, course_id, output_dir,
+                list_only=args.list_only, parallel=args.parallel, log=log,
+            )
+        except LoginError as exc:
+            print(f"✗ {exc}")
+            return 1
+        except Exception as exc:
+            print(f"✗ 失败: {exc}")
+            return 1
+        cws = result["coursewares"]
+        total_files = sum(len(r["materials"]) for r in cws)
+        print(
+            f"\n✓ 完成：{len(cws)} 个课件，{total_files} 个附件"
+            f"{'（仅列表，未下载）' if args.list_only else ''}"
+        )
+        if result.get("output_root") and not args.list_only:
+            print(f"  文件: {result['output_root']}")
+        return 0
+
     try:
         result = run_download(
             username,
@@ -167,6 +199,7 @@ def main() -> int:
             output_dir,
             download_submissions=not args.no_submissions,
             list_only=args.list_only,
+            parallel=args.parallel,
             log=log,
         )
     except LoginError as exc:
