@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import os
+import mimetypes
 from typing import Any, Iterable
 
 import requests
@@ -523,50 +524,79 @@ def _write_headers(session: requests.Session) -> dict:
 def upload_file(session: requests.Session, file_path: str) -> dict:
     """上传单个文件，返回 TronClass 的 upload 对象（含 id/name/size）。
 
-    实测上传端点为 POST /api/uploads（multipart/form-data，字段名 file），
-    返回 {id, name, size, ...}。兼容若干历史端点。
+    经 Playwright/前端 JS 实测，TronClass 当前上传是二段式：
+      1. POST /api/uploads 发送 {name, size, type}，取得 upload_url 与 id；
+      2. PUT upload_url，multipart/form-data 字段名 file，媒体服务返回 file_key；
+      3. 尝试 POST /api/upload/callback/{id} 回传 file_key。
     """
     path = os.path.abspath(file_path)
     if not os.path.isfile(path):
         raise SubmitError(f"文件不存在：{path}")
     fname = os.path.basename(path)
+    size = os.path.getsize(path)
+    ext = os.path.splitext(fname)[1].lstrip(".").lower() or "bin"
+    mime = mimetypes.guess_type(fname)[0] or "application/octet-stream"
 
-    candidates = ["api/uploads", "api/upload", "api/uploads/blob"]
-    last_err: Exception | None = None
-    for ep in candidates:
-        url = f"{BASE_URL}/{ep}"
+    pre_url = f"{BASE_URL}/api/uploads"
+    payload = {"name": fname, "size": size, "type": ext}
+    pre = session.post(pre_url, json=payload, headers=_write_headers(session), timeout=60)
+    if pre.status_code == 404:
+        raise SubmitError(f"上传端点不存在 (404)：{pre_url}")
+    if pre.status_code in (401, 403):
+        raise SubmitError(f"上传未授权 ({pre.status_code})：登录态或 CSRF 失效")
+    if pre.status_code not in (200, 201):
+        raise SubmitError(f"预上传失败 HTTP {pre.status_code}：{pre.text[:200]}")
+    try:
+        obj = pre.json()
+    except ValueError as exc:
+        raise SubmitError(f"预上传响应不是 JSON：{pre_url}") from exc
+    if not isinstance(obj, dict) or obj.get("id") is None:
+        raise SubmitError(f"预上传响应缺少 id：{str(obj)[:200]}")
+
+    upload_url = obj.get("upload_url") or obj.get("url")
+    if not upload_url:
+        return obj
+
+    try:
+        with open(path, "rb") as fh:
+            put = session.put(
+                upload_url,
+                files={"file": (fname, fh, mime)},
+                timeout=120,
+            )
+    except OSError as exc:
+        raise SubmitError(f"读取文件失败：{exc}") from exc
+    if put.status_code not in (200, 201, 204):
+        raise SubmitError(f"上传文件失败 HTTP {put.status_code}：{put.text[:200]}")
+
+    file_key = None
+    if put.text:
         try:
-            with open(path, "rb") as fh:
-                resp = session.post(
-                    url,
-                    files={"file": (fname, fh)},
-                    headers=_write_headers(session),
-                    timeout=120,
-                )
-        except OSError as exc:
-            raise SubmitError(f"读取文件失败：{exc}") from exc
-        if resp.status_code == 404:
-            last_err = SubmitError(f"上传端点不存在 (404)：{url}")
-            continue
-        if resp.status_code in (401, 403):
-            raise SubmitError(f"上传未授权 ({resp.status_code})：登录态或 CSRF 失效")
-        if resp.status_code not in (200, 201):
-            last_err = SubmitError(f"上传失败 HTTP {resp.status_code}：{resp.text[:200]}")
-            continue
-        try:
-            data = resp.json()
-        except ValueError as exc:
-            raise SubmitError(f"上传响应不是 JSON：{url}") from exc
-        # 取出 upload 对象（可能裹在 data/upload 里）
-        obj = data
-        if isinstance(data, dict):
-            obj = data.get("upload") or data.get("data") or data
-        if isinstance(obj, dict) and (obj.get("id") is not None):
-            return obj
-        last_err = SubmitError(f"上传响应缺少 id：{str(data)[:200]}")
-    if last_err:
-        raise last_err
-    raise SubmitError("上传失败：所有端点均不可用")
+            put_data = put.json()
+            if isinstance(put_data, dict):
+                file_key = put_data.get("file_key")
+        except ValueError:
+            file_key = None
+    if file_key:
+        callback_url = f"{BASE_URL}/api/upload/callback/{obj['id']}"
+        callback = session.post(
+            callback_url,
+            json={"file_key": file_key},
+            headers=_write_headers(session),
+            timeout=60,
+        )
+        if callback.status_code not in (200, 201, 204, 404):
+            raise SubmitError(
+                f"上传回调失败 HTTP {callback.status_code}：{callback.text[:200]}"
+            )
+        if callback.status_code in (200, 201) and callback.text:
+            try:
+                callback_data = callback.json()
+                if isinstance(callback_data, dict):
+                    obj.update(callback_data.get("upload") or callback_data.get("data") or callback_data)
+            except ValueError:
+                pass
+    return obj
 
 
 def submit_homework(
@@ -595,6 +625,7 @@ def submit_homework(
         "is_draft": False,
     }
     candidates = [
+        f"api/course/activities/{homework_id}/submissions",
         f"api/activities/{homework_id}/submissions",
         f"api/homework-activities/{homework_id}/submissions",
         f"api/homework/{homework_id}/submissions",
@@ -602,9 +633,9 @@ def submit_homework(
     last_err: Exception | None = None
     for ep in candidates:
         url = f"{BASE_URL}/{ep}"
-        resp = session.post(
-            url, json=payload, headers=_write_headers(session), timeout=60
-        )
+        resp = session.post(url, json=payload, headers=_write_headers(session), timeout=60)
+        if resp.status_code == 405:
+            resp = session.put(url, json=payload, headers=_write_headers(session), timeout=60)
         if resp.status_code == 404:
             last_err = SubmitError(f"提交端点不存在 (404)：{url}")
             continue
