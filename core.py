@@ -575,6 +575,7 @@ def prepare_courseware_download(
     output_dir: str = "downloads",
     *,
     records: list[dict] | None = None,
+    selected_ids: set[str] | list[str] | tuple[str, ...] | None = None,
     session: requests.Session | None = None,
     log: Logger = _noop,
 ) -> dict:
@@ -591,6 +592,8 @@ def prepare_courseware_download(
         records = get_courseware_overview(
             username, password, course_id, session=session, log=log
         )
+    _apply_courseware_dest_dirs(records, output_root)
+    records = _filter_courseware_records(records, selected_ids)
 
     tasks: list[DownloadTask] = []
     tid = 0
@@ -615,6 +618,25 @@ def prepare_courseware_download(
     }
 
 
+def _filter_courseware_records(
+    records: list[dict],
+    selected_ids: set[str] | list[str] | tuple[str, ...] | None,
+) -> list[dict]:
+    """按课件 id 过滤记录；未传 selected_ids 时保持全部课件。"""
+    if not selected_ids:
+        return records
+    selected = {str(i) for i in selected_ids}
+    return [r for r in records if str(r.get("id")) in selected]
+
+
+def _apply_courseware_dest_dirs(records: list[dict], output_root: Path) -> None:
+    """把课件附件目录重写到当前下载根目录，兼容缓存记录复用。"""
+    for idx, record in enumerate(records, 1):
+        dest = output_root / f"{idx:02d}_{sanitize(record.get('title') or 'courseware')}"
+        for material in record.get("materials") or []:
+            material["dest_dir"] = str(dest) if material.get("url") else None
+
+
 def download_coursewares(
     username: str,
     password: str,
@@ -623,6 +645,7 @@ def download_coursewares(
     *,
     list_only: bool = False,
     parallel: int = 4,
+    selected_ids: set[str] | list[str] | tuple[str, ...] | None = None,
     session: requests.Session | None = None,
     log: Logger = _noop,
     progress: Progress = _noop,
@@ -630,7 +653,7 @@ def download_coursewares(
     """抓取并下载课程的全部课件附件，返回结果汇总 dict。"""
     prep = prepare_courseware_download(
         username, password, course_id, output_dir,
-        session=session, log=log,
+        selected_ids=selected_ids, session=session, log=log,
     )
     records = prep["records"]
     output_root = prep["output_root"]

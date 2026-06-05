@@ -9,7 +9,8 @@
 - 可选下载自己已提交的作业文件
 - 按 `作业序号_标题/{题目附件, 我的提交}` 分目录保存
 - 生成 `manifest.json` 清单（含每个附件的下载链接与本地路径）
-- Tkinter 图形界面：填表、实时日志、进度条
+- Tkinter 图形界面：填表、实时日志、进度条，支持多选课件下载
+- React Web 图形界面：课程/作业/课件列表、课件勾选下载、实时日志
 
 ## 安装
 
@@ -39,6 +40,7 @@ python main.py                       # 用 .env 的配置
 python main.py --course 53472        # 指定课程
 python main.py --no-submissions      # 只下题目附件，不下我的提交
 python main.py --list-only           # 仅列出附件与链接，不下载
+python main.py --coursewares --courseware-ids 12345 67890  # 只下载指定课件
 ```
 
 列出我的全部课程（id ↔ 课程名 映射）：
@@ -70,6 +72,14 @@ python gui.py
 ```
 
 填入账号、密码、课程 ID，选择保存目录，点击「开始下载」。可勾选是否下载我的提交、是否仅列出。
+
+React Web 图形界面：
+
+```bash
+python web_gui.py
+```
+
+打开 `http://127.0.0.1:8765/`。可刷新课程/作业/课件，在「课件」页勾选部分课件后点击「下载选中」。
 
 ## 输出结构
 

@@ -62,6 +62,10 @@ def parse_args() -> argparse.Namespace:
         help="下载该课程的课件（课程资料）附件，而非作业",
     )
     p.add_argument(
+        "--courseware-ids", nargs="+", metavar="ID",
+        help="仅下载指定课件 ID（需配合 --coursewares，可多个）",
+    )
+    p.add_argument(
         "--submit", metavar="HW_ID",
         help="向指定作业 ID 提交作业（配合 --files；这是写操作，需确认）",
     )
@@ -90,6 +94,9 @@ def main() -> int:
 
     if not username or not password:
         print("✗ 缺少账号密码，请在 .env 中设置 HZCU_USERNAME / HZCU_PASSWORD")
+        return 2
+    if args.courseware_ids and not args.coursewares:
+        print("✗ --courseware-ids 需要配合 --coursewares 使用")
         return 2
 
     log = lambda m: print(_indent(m))
@@ -174,6 +181,7 @@ def main() -> int:
             result = download_coursewares(
                 username, password, course_id, output_dir,
                 list_only=args.list_only, parallel=args.parallel, log=log,
+                selected_ids=args.courseware_ids,
             )
         except LoginError as exc:
             print(f"✗ {exc}")

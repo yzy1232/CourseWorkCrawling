@@ -217,13 +217,16 @@ class App(tk.Tk):
         top.grid(row=0, column=0, sticky="ew", **pad)
         ttk.Button(top, text="刷新课件", command=self._on_refresh_coursewares).pack(side="left", padx=4)
         ttk.Button(top, text="下载全部课件", command=self._on_download_coursewares).pack(side="left", padx=4)
+        ttk.Button(top, text="下载选中课件", command=self._on_download_selected_coursewares).pack(side="left", padx=4)
+        ttk.Button(top, text="全选", command=self._select_all_coursewares).pack(side="left", padx=4)
+        ttk.Button(top, text="清空选择", command=self._clear_courseware_selection).pack(side="left", padx=4)
         self.lbl_cw_cache = ttk.Label(top, text="", foreground="gray")
         self.lbl_cw_cache.pack(side="left", padx=8)
 
         cols = ("title", "n_files", "downloadable")
         heads = {"title": "课件", "n_files": "附件数", "downloadable": "可下载"}
         widths = {"title": 420, "n_files": 80, "downloadable": 100}
-        self.tree_cw = ttk.Treeview(tab, columns=cols, show="headings", height=10)
+        self.tree_cw = ttk.Treeview(tab, columns=cols, show="headings", height=10, selectmode="extended")
         for c in cols:
             self.tree_cw.heading(c, text=heads[c])
             self.tree_cw.column(c, width=widths[c], anchor="w")
@@ -344,8 +347,9 @@ class App(tk.Tk):
             self._ui(lambda: self._set_courses(courses, cached_at, stale))
             self._log(f"✓ 已载入 {len(courses)} 门课程")
         except Exception as exc:
-            self._log(f"\n✗ 获取课程失败：{exc}")
-            self._ui(lambda: messagebox.showerror("获取课程失败", str(exc)))
+            err = str(exc)
+            self._log(f"\n✗ 获取课程失败：{err}")
+            self._ui(lambda err=err: messagebox.showerror("获取课程失败", err))
 
     # ---------- 作业概览 ----------
     def _on_refresh_homeworks(self) -> None:
@@ -372,8 +376,9 @@ class App(tk.Tk):
             self._ui(lambda: self._fill_homeworks(records, cached_at, stale))
             self._log(f"✓ 作业列表已更新（{len(records)} 个）")
         except Exception as exc:
-            self._log(f"\n✗ 获取作业失败：{exc}")
-            self._ui(lambda: messagebox.showerror("获取作业失败", str(exc)))
+            err = str(exc)
+            self._log(f"\n✗ 获取作业失败：{err}")
+            self._ui(lambda err=err: messagebox.showerror("获取作业失败", err))
 
     def _fill_homeworks(self, records, cached_at, stale) -> None:
         self._records = records
@@ -451,8 +456,9 @@ class App(tk.Tk):
             self._ui(lambda: self._fill_coursewares(records, cached_at, stale))
             self._log(f"✓ 课件列表已更新（{len(records)} 个）")
         except Exception as exc:
-            self._log(f"\n✗ 获取课件失败：{exc}")
-            self._ui(lambda: messagebox.showerror("获取课件失败", str(exc)))
+            err = str(exc)
+            self._log(f"\n✗ 获取课件失败：{err}")
+            self._ui(lambda err=err: messagebox.showerror("获取课件失败", err))
 
     def _fill_coursewares(self, records, cached_at, stale) -> None:
         self._cw_records = records
@@ -470,7 +476,31 @@ class App(tk.Tk):
             ))
         self.lbl_cw_cache.configure(**_cache_label(cached_at, stale))
 
-    def _on_download_coursewares(self) -> None:
+    def _selected_courseware_ids(self) -> list[str]:
+        ids: list[str] = []
+        for iid in self.tree_cw.selection():
+            try:
+                idx = int(iid)
+            except ValueError:
+                continue
+            if 0 <= idx < len(self._cw_records):
+                ids.append(str(self._cw_records[idx].get("id")))
+        return ids
+
+    def _select_all_coursewares(self) -> None:
+        self.tree_cw.selection_set(self.tree_cw.get_children())
+
+    def _clear_courseware_selection(self) -> None:
+        self.tree_cw.selection_remove(self.tree_cw.selection())
+
+    def _on_download_selected_coursewares(self) -> None:
+        selected_ids = self._selected_courseware_ids()
+        if not selected_ids:
+            messagebox.showinfo("请选择课件", "请先在课件列表中选择要下载的课件")
+            return
+        self._on_download_coursewares(selected_ids=selected_ids)
+
+    def _on_download_coursewares(self, selected_ids: list[str] | None = None) -> None:
         if self._manager and not self._manager.is_done():
             messagebox.showinfo("请稍候", "已有下载任务在进行")
             return
@@ -479,22 +509,27 @@ class App(tk.Tk):
             return
         user, pw, course = c
         output = self.var_output.get().strip() or "downloads"
-        self._start_worker(self._job_prepare_coursewares, user, pw, course, output)
+        self._start_worker(
+            self._job_prepare_coursewares, user, pw, course, output, selected_ids
+        )
 
-    def _job_prepare_coursewares(self, user, pw, course, output) -> None:
+    def _job_prepare_coursewares(self, user, pw, course, output, selected_ids=None) -> None:
         try:
             records = self._cw_records or None
             prep = prepare_courseware_download(
-                user, pw, course, output, records=records, log=self._log,
+                user, pw, course, output, records=records,
+                selected_ids=selected_ids, log=self._log,
             )
             self._last_output = str(prep["output_root"])
-            self._ui(lambda: self._fill_coursewares(
-                prep["records"], None, False))
+            if not selected_ids:
+                self._ui(lambda: self._fill_coursewares(
+                    prep["records"], None, False))
             self._ui(lambda: self._launch_manager(
                 prep["session"], prep["tasks"]))
         except Exception as exc:
-            self._log(f"\n✗ 出错：{exc}")
-            self._ui(lambda: messagebox.showerror("下载失败", str(exc)))
+            err = str(exc)
+            self._log(f"\n✗ 出错：{err}")
+            self._ui(lambda err=err: messagebox.showerror("下载失败", err))
 
     # ---------- 提交作业 ----------
     def _choose_submit_files(self) -> None:
@@ -538,8 +573,9 @@ class App(tk.Tk):
             self._log(f"\n✓ 已提交 {n} 个附件到作业 {hw}")
             self._ui(lambda: messagebox.showinfo("提交成功", f"已提交 {n} 个附件"))
         except Exception as exc:
-            self._log(f"\n✗ 提交失败：{exc}")
-            self._ui(lambda: messagebox.showerror("提交失败", str(exc)))
+            err = str(exc)
+            self._log(f"\n✗ 提交失败：{err}")
+            self._ui(lambda err=err: messagebox.showerror("提交失败", err))
 
     # ---------- 下载 ----------
     def _open_output(self) -> None:
@@ -582,8 +618,9 @@ class App(tk.Tk):
             self._last_output = str(prep["output_root"])
             self._ui(lambda: self._launch_manager(prep["session"], prep["tasks"]))
         except Exception as exc:
-            self._log(f"\n✗ 出错：{exc}")
-            self._ui(lambda: messagebox.showerror("下载失败", str(exc)))
+            err = str(exc)
+            self._log(f"\n✗ 出错：{err}")
+            self._ui(lambda err=err: messagebox.showerror("下载失败", err))
             self._ui(lambda: self.btn_start.configure(text="开始下载", state="normal"))
 
     def _launch_manager(self, session, tasks: list[DownloadTask]) -> None:
@@ -626,9 +663,11 @@ class App(tk.Tk):
             prog = _fmt_bytes(t.done_bytes)
         label = {"pending": "等待", "downloading": "下载中", "paused": "暂停",
                  "done": "完成", "error": "失败", "skipped": "跳过"}.get(t.status, t.status)
+        kind_label = {"assignment": "题目", "submission": "提交", "material": "课件"}.get(
+            t.kind, t.kind
+        )
         self.tree_task.item(iid, values=(
-            t.hw_title, "题目" if t.kind == "assignment" else "提交",
-            t.name, label, prog,
+            t.hw_title, kind_label, t.name, label, prog,
         ))
         self._refresh_task_summary()
 

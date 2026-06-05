@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>学在城院下载器</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --line: #d8dee6;
+      --ink: #1f2933;
+      --muted: #637083;
+      --brand: #1769aa;
+      --brand-strong: #0f4f82;
+      --ok: #16794c;
+      --warn: #a85b00;
+      --danger: #b42318;
+      --shadow: 0 10px 24px rgba(31, 41, 51, .08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.45 "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+    }
+    button, input, select {
+      font: inherit;
+    }
+    button {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      min-height: 34px;
+      padding: 0 12px;
+      cursor: pointer;
+    }
+    button.primary {
+      border-color: var(--brand);
+      background: var(--brand);
+      color: #fff;
+    }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: .58;
+    }
+    input, select {
+      width: 100%;
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 5px 8px;
+    }
+    label {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+    }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #eef2f6;
+      color: #3d4a5c;
+      font-size: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    tr.selected td {
+      background: #e9f3fb;
+    }
+    .app {
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    .sidebar {
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 4px;
+    }
+    .brand h1 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+    .pill {
+      border: 1px solid #c7d7e6;
+      border-radius: 999px;
+      color: var(--brand-strong);
+      background: #edf6fd;
+      padding: 3px 8px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .form-grid {
+      display: grid;
+      gap: 10px;
+    }
+    .inline {
+      display: grid;
+      grid-template-columns: 1fr 72px;
+      gap: 8px;
+      align-items: end;
+    }
+    .checkline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .checkline input {
+      width: 16px;
+      min-height: 16px;
+    }
+    .sidebar-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .content {
+      min-width: 0;
+      padding: 18px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) 180px;
+      gap: 14px;
+    }
+    .toolbar {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .tabs, .actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .tab {
+      min-width: 76px;
+      background: #f8fafc;
+    }
+    .tab.active {
+      border-color: var(--brand);
+      color: var(--brand-strong);
+      background: #edf6fd;
+    }
+    .panel {
+      min-height: 0;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+    .panel-head {
+      min-height: 48px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .panel-head h2 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+    .muted {
+      color: var(--muted);
+    }
+    .table-wrap {
+      overflow: auto;
+      min-height: 220px;
+    }
+    .empty {
+      color: var(--muted);
+      padding: 28px;
+      text-align: center;
+    }
+    .status-ok {
+      color: var(--ok);
+      font-weight: 700;
+    }
+    .status-warn {
+      color: var(--warn);
+      font-weight: 700;
+    }
+    .logs {
+      background: #101820;
+      color: #d7e3ef;
+      border-radius: 8px;
+      border: 1px solid #22313f;
+      box-shadow: var(--shadow);
+      padding: 12px;
+      overflow: auto;
+      white-space: pre-wrap;
+      font: 12px/1.5 Consolas, "Courier New", monospace;
+    }
+    .error {
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    @media (max-width: 860px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .content {
+        grid-template-rows: auto minmax(360px, 1fr) 180px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script>
+    const h = React.createElement;
+
+    function App() {
+      const [form, setForm] = React.useState({
+        username: "",
+        password: "",
+        course_id: "",
+        output_dir: "downloads",
+        parallel: 4,
+        download_submissions: true
+      });
+      const [courses, setCourses] = React.useState([]);
+      const [homeworks, setHomeworks] = React.useState([]);
+      const [coursewares, setCoursewares] = React.useState([]);
+      const [selected, setSelected] = React.useState(new Set());
+      const [tab, setTab] = React.useState("coursewares");
+      const [busy, setBusy] = React.useState(false);
+      const [logs, setLogs] = React.useState(["等待操作。"]);
+      const [error, setError] = React.useState("");
+
+      React.useEffect(() => {
+        fetch("/api/config")
+          .then(r => r.json())
+          .then(cfg => setForm(f => ({
+            ...f,
+            username: cfg.username || "",
+            course_id: cfg.course_id || "",
+            output_dir: cfg.output_dir || "downloads"
+          })))
+          .catch(() => {});
+      }, []);
+
+      function update(key, value) {
+        setForm(f => ({ ...f, [key]: value }));
+      }
+
+      function append(lines) {
+        if (!lines) return;
+        const arr = Array.isArray(lines) ? lines : [String(lines)];
+        setLogs(prev => prev.concat(arr));
+      }
+
+      async function api(path, extra) {
+        setBusy(true);
+        setError("");
+        try {
+          const res = await fetch(path, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...form, ...extra })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "请求失败");
+          append(data.logs);
+          return data;
+        } catch (err) {
+          setError(err.message);
+          append("✗ " + err.message);
+          throw err;
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function loadCourses() {
+        const data = await api("/api/courses", { refresh: true });
+        setCourses(data.courses || []);
+      }
+
+      async function loadHomeworks() {
+        const data = await api("/api/homeworks", { refresh: true });
+        setHomeworks(data.homeworks || []);
+        setTab("homeworks");
+      }
+
+      async function loadCoursewares() {
+        const data = await api("/api/coursewares", { refresh: true });
+        setCoursewares(data.coursewares || []);
+        setSelected(new Set());
+        setTab("coursewares");
+      }
+
+      async function downloadHomeworks() {
+        const data = await api("/api/download/homeworks", {});
+        append("✓ 作业下载完成：" + (data.output_root || "仅列表"));
+        setHomeworks(data.homeworks || homeworks);
+      }
+
+      async function downloadCoursewares(onlySelected) {
+        const ids = onlySelected ? Array.from(selected) : [];
+        if (onlySelected && ids.length === 0) {
+          setError("请先勾选要下载的课件");
+          return;
+        }
+        const data = await api("/api/download/coursewares", { selected_ids: ids });
+        const count = (data.coursewares || []).reduce((n, r) => n + (r.materials || []).length, 0);
+        append("✓ 课件下载完成：" + (data.coursewares || []).length + " 个课件，" + count + " 个附件");
+        if (!onlySelected) setCoursewares(data.coursewares || coursewares);
+      }
+
+      function toggleCourseware(id) {
+        setSelected(prev => {
+          const next = new Set(prev);
+          if (next.has(String(id))) next.delete(String(id));
+          else next.add(String(id));
+          return next;
+        });
+      }
+
+      function selectAllCoursewares() {
+        setSelected(new Set(coursewares.map(r => String(r.id))));
+      }
+
+      const selectedCount = selected.size;
+
+      return h("div", { className: "app" },
+        h("aside", { className: "sidebar" },
+          h("div", { className: "brand" },
+            h("h1", null, "学在城院下载器"),
+            h("span", { className: "pill" }, "React")
+          ),
+          h("div", { className: "form-grid" },
+            h("label", null, "账号",
+              h("input", {
+                value: form.username,
+                onChange: e => update("username", e.target.value),
+                placeholder: "学号/账号"
+              })
+            ),
+            h("label", null, "密码",
+              h("input", {
+                type: "password",
+                value: form.password,
+                onChange: e => update("password", e.target.value),
+                placeholder: "留空则使用 .env"
+              })
+            ),
+            h("label", null, "课程",
+              h("select", {
+                value: form.course_id,
+                onChange: e => update("course_id", e.target.value)
+              },
+                h("option", { value: "" }, "手动输入或刷新课程"),
+                courses.map(c => h("option", { key: c.id, value: c.id }, c.id + "  " + c.name))
+              )
+            ),
+            h("label", null, "课程 ID",
+              h("input", {
+                value: form.course_id,
+                onChange: e => update("course_id", e.target.value),
+                placeholder: "例如 53472"
+              })
+            ),
+            h("label", null, "保存目录",
+              h("input", {
+                value: form.output_dir,
+                onChange: e => update("output_dir", e.target.value)
+              })
+            ),
+            h("div", { className: "inline" },
+              h("label", null, "并行数",
+                h("input", {
+                  type: "number",
+                  min: "1",
+                  max: "8",
+                  value: form.parallel,
+                  onChange: e => update("parallel", Number(e.target.value) || 1)
+                })
+              ),
+              h("label", { className: "checkline" },
+                h("input", {
+                  type: "checkbox",
+                  checked: form.download_submissions,
+                  onChange: e => update("download_submissions", e.target.checked)
+                }),
+                "提交"
+              )
+            )
+          ),
+          h("div", { className: "sidebar-actions" },
+            h("button", { onClick: loadCourses, disabled: busy }, "刷新课程"),
+            h("button", { onClick: loadHomeworks, disabled: busy || !form.course_id }, "刷新作业"),
+            h("button", { onClick: loadCoursewares, disabled: busy || !form.course_id }, "刷新课件"),
+            h("button", { onClick: () => setLogs([]), disabled: busy }, "清空日志")
+          )
+        ),
+        h("main", { className: "content" },
+          h("div", { className: "toolbar" },
+            h("div", { className: "tabs" },
+              h("button", {
+                className: "tab " + (tab === "coursewares" ? "active" : ""),
+                onClick: () => setTab("coursewares")
+              }, "课件"),
+              h("button", {
+                className: "tab " + (tab === "homeworks" ? "active" : ""),
+                onClick: () => setTab("homeworks")
+              }, "作业")
+            ),
+            h("div", { className: "actions" },
+              tab === "coursewares" && h(React.Fragment, null,
+                h("button", { onClick: selectAllCoursewares, disabled: busy || !coursewares.length }, "全选"),
+                h("button", { onClick: () => setSelected(new Set()), disabled: busy || !selectedCount }, "清空"),
+                h("button", { onClick: () => downloadCoursewares(true), disabled: busy || !selectedCount, className: "primary" }, "下载选中"),
+                h("button", { onClick: () => downloadCoursewares(false), disabled: busy || !coursewares.length }, "下载全部")
+              ),
+              tab === "homeworks" && h("button", { onClick: downloadHomeworks, disabled: busy || !form.course_id, className: "primary" }, "下载作业")
+            )
+          ),
+          tab === "coursewares"
+            ? h(CoursewarePanel, { rows: coursewares, selected, onToggle: toggleCourseware, selectedCount })
+            : h(HomeworkPanel, { rows: homeworks }),
+          h("div", { className: "logs" },
+            error ? h("div", { className: "error" }, "✗ " + error) : null,
+            logs.join("\n")
+          )
+        )
+      );
+    }
+
+    function CoursewarePanel({ rows, selected, onToggle, selectedCount }) {
+      return h("section", { className: "panel" },
+        h("div", { className: "panel-head" },
+          h("h2", null, "课件"),
+          h("span", { className: "muted" }, rows.length + " 个课件，已选 " + selectedCount + " 个")
+        ),
+        h("div", { className: "table-wrap" },
+          rows.length === 0
+            ? h("div", { className: "empty" }, "刷新课件后可勾选部分课件下载。")
+            : h("table", null,
+              h("thead", null, h("tr", null,
+                h("th", { style: { width: "46px" } }, ""),
+                h("th", null, "课件"),
+                h("th", { style: { width: "86px" } }, "附件数"),
+                h("th", { style: { width: "130px" } }, "状态")
+              )),
+              h("tbody", null, rows.map(row => {
+                const mats = row.materials || [];
+                const nPdf = mats.filter(m => m.pdf_fallback).length;
+                const nDisabled = mats.filter(m => m.dest_dir === null).length;
+                const isSelected = selected.has(String(row.id));
+                return h("tr", { key: row.id, className: isSelected ? "selected" : "" },
+                  h("td", null,
+                    h("input", {
+                      type: "checkbox",
+                      checked: isSelected,
+                      onChange: () => onToggle(row.id)
+                    })
+                  ),
+                  h("td", null,
+                    h("strong", null, row.title),
+                    row.description ? h("div", { className: "muted" }, row.description.slice(0, 120)) : null
+                  ),
+                  h("td", null, mats.length),
+                  h("td", null,
+                    nDisabled ? h("span", { className: "status-warn" }, "部分跳过") :
+                    nPdf ? h("span", { className: "status-warn" }, "含 PDF 兜底") :
+                    h("span", { className: "status-ok" }, "可下载")
+                  )
+                );
+              }))
+            )
+        )
+      );
+    }
+
+    function HomeworkPanel({ rows }) {
+      return h("section", { className: "panel" },
+        h("div", { className: "panel-head" },
+          h("h2", null, "作业"),
+          h("span", { className: "muted" }, rows.length + " 个作业")
+        ),
+        h("div", { className: "table-wrap" },
+          rows.length === 0
+            ? h("div", { className: "empty" }, "刷新作业后可查看题目附件和提交状态。")
+            : h("table", null,
+              h("thead", null, h("tr", null,
+                h("th", null, "标题"),
+                h("th", { style: { width: "90px" } }, "已提交"),
+                h("th", { style: { width: "150px" } }, "截止"),
+                h("th", { style: { width: "90px" } }, "题目附件"),
+                h("th", { style: { width: "90px" } }, "我的提交")
+              )),
+              h("tbody", null, rows.map(row => {
+                const status = row.status || {};
+                return h("tr", { key: row.id },
+                  h("td", null, h("strong", null, row.title)),
+                  h("td", null, status.submitted ? h("span", { className: "status-ok" }, "是") : h("span", { className: "status-warn" }, "否")),
+                  h("td", null, status.deadline || "-"),
+                  h("td", null, (row.assignment || []).length),
+                  h("td", null, (row.submission || []).length)
+                );
+              }))
+            )
+        )
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+  </script>
+</body>
+</html>
