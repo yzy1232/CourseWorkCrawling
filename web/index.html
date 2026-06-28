@@ -186,6 +186,50 @@
       min-height: 100vh;
     }
 
+    .login-shell {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .login-card {
+      width: min(430px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .94);
+      box-shadow: var(--shadow);
+      padding: 22px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .login-head {
+      display: grid;
+      gap: 5px;
+    }
+
+    .login-head h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .login-head p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .login-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
     .sidebar {
       position: sticky;
       top: 0;
@@ -830,6 +874,27 @@
   <div id="root"></div>
   <script>
     const h = React.createElement;
+    const AUTH_COOKIE = "coursework_auth";
+
+    function readAuthCookie() {
+      const prefix = AUTH_COOKIE + "=";
+      const part = document.cookie.split("; ").find(item => item.startsWith(prefix));
+      if (!part) return null;
+      try {
+        return JSON.parse(decodeURIComponent(part.slice(prefix.length)));
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function writeAuthCookie(auth) {
+      const value = encodeURIComponent(JSON.stringify(auth));
+      document.cookie = AUTH_COOKIE + "=" + value + "; max-age=" + (30 * 24 * 60 * 60) + "; path=/; SameSite=Lax";
+    }
+
+    function clearAuthCookie() {
+      document.cookie = AUTH_COOKIE + "=; max-age=0; path=/; SameSite=Lax";
+    }
 
     function Badge({ tone, children }) {
       return h("span", { className: "badge badge-" + tone }, children);
@@ -850,6 +915,45 @@
           h("div", { className: "loading-spinner" }),
           h("div", { className: "empty-title" }, title),
           h("div", null, children)
+        )
+      );
+    }
+
+    function LoginPage({ value, busy, status, onChange, onSubmit }) {
+      return h("main", { className: "login-shell" },
+        h("form", { className: "login-card", onSubmit },
+          h("div", { className: "login-head" },
+            h("h1", null, "登录学在城院下载器"),
+            h("p", null, "认证信息会保存在当前浏览器 Cookie。")
+          ),
+          h("div", { className: "form-grid" },
+            h("label", null, "账号",
+              h("input", {
+                value: value.username,
+                onChange: e => onChange("username", e.target.value),
+                placeholder: "学号/账号",
+                autoComplete: "username"
+              })
+            ),
+            h("label", null, "密码",
+              h(MaskedPasswordInput, {
+                value: value.password,
+                onChange: next => onChange("password", next),
+                placeholder: "统一认证密码"
+              })
+            )
+          ),
+          h("div", { className: "login-actions" },
+            h("button", {
+              type: "submit",
+              className: "primary",
+              disabled: busy || !value.username.trim() || !value.password
+            }, busy ? "登录中" : "登录"),
+            h("span", { className: "busy-state " + (busy ? "active" : "") + (status.tone === "error" ? " error" : ""), title: status.text },
+              h("span", { className: "busy-dot" }),
+              h("span", { className: "busy-text" }, status.text)
+            )
+          )
         )
       );
     }
@@ -980,10 +1084,15 @@
     }
 
     function App() {
+      const [auth, setAuth] = React.useState(() => readAuthCookie());
       const [form, setForm] = React.useState({
-        username: "",
-        password: "",
-        course_id: ""
+        username: (auth && auth.username) || "",
+        password: (auth && auth.password) || "",
+        course_id: (auth && auth.course_id) || ""
+      });
+      const [loginForm, setLoginForm] = React.useState({
+        username: (auth && auth.username) || "",
+        password: (auth && auth.password) || ""
       });
       const [courses, setCourses] = React.useState([]);
       const [homeworks, setHomeworks] = React.useState([]);
@@ -1001,32 +1110,12 @@
       const [downloadStatuses, setDownloadStatuses] = React.useState({});
 
       React.useEffect(() => {
-        fetch("/api/config")
-          .then(r => r.json())
-          .then(cfg => {
-            setForm(f => ({
-              ...f,
-              username: cfg.username || "",
-              course_id: cfg.course_id || ""
-            }));
-            if (cfg.username) {
-              loadCourses(false, {
-                username: cfg.username || "",
-                course_id: cfg.course_id || ""
-              }).catch(() => {});
-            }
-            if (cfg.course_id) {
-              loadHomeworks(false, {
-                username: cfg.username || "",
-                course_id: cfg.course_id || ""
-              }).catch(() => {});
-              loadCoursewares(false, {
-                username: cfg.username || "",
-                course_id: cfg.course_id || ""
-              }).catch(() => {});
-            }
-          })
-          .catch(() => {});
+        if (!auth || !auth.username || !auth.password) return;
+        loadCourses(false).catch(() => {});
+        if (auth.course_id) {
+          loadHomeworks(false).catch(() => {});
+          loadCoursewares(false).catch(() => {});
+        }
       }, []);
 
       React.useEffect(() => {
@@ -1075,7 +1164,64 @@
       }, [homeworks]);
 
       function update(key, value) {
+        if (key === "course_id" && form.username && form.password) {
+          const nextAuth = { username: form.username, password: form.password, course_id: value };
+          writeAuthCookie(nextAuth);
+          setAuth(nextAuth);
+        }
         setForm(f => ({ ...f, [key]: value }));
+      }
+
+      function updateLogin(key, value) {
+        setLoginForm(f => ({ ...f, [key]: value }));
+      }
+
+      async function login(e) {
+        e.preventDefault();
+        const username = loginForm.username.trim();
+        const password = loginForm.password;
+        if (!username || !password) return;
+
+        setBusy(true);
+        setStatus({ tone: "neutral", text: "正在登录" });
+        try {
+          const res = await fetch("/api/courses", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password, course_id: "", refresh: true })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "登录失败");
+          const nextAuth = { username, password, course_id: form.course_id || "" };
+          writeAuthCookie(nextAuth);
+          setAuth(nextAuth);
+          setForm(f => ({ ...f, username, password }));
+          setCourses(data.courses || []);
+          setStatus({ tone: "ok", text: "登录成功" });
+        } catch (err) {
+          setStatus({ tone: "error", text: err.message });
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      function logout() {
+        clearAuthCookie();
+        setAuth(null);
+        setForm({ username: "", password: "", course_id: "" });
+        setLoginForm({ username: "", password: "" });
+        setCourses([]);
+        setCoursewares([]);
+        setHomeworks([]);
+        setSelected(new Set());
+        setSelectedMaterials(new Set());
+        setSelectedHomeworks(new Set());
+        setSelectedAssignments(new Set());
+        setSelectedSubmissions(new Set());
+        setDownloadStatuses({});
+        setSubmitTarget("");
+        setTab("coursewares");
+        setStatus({ tone: "neutral", text: "已退出" });
       }
 
       function summarize(lines, fallback) {
@@ -1702,6 +1848,16 @@
       const statusClass = "busy-state " + (busy ? "active" : "") + (status.tone === "error" ? " error" : "");
       const statusText = status.text;
 
+      if (!auth || !auth.username || !auth.password) {
+        return h(LoginPage, {
+          value: loginForm,
+          busy,
+          status,
+          onChange: updateLogin,
+          onSubmit: login
+        });
+      }
+
       return h("div", { className: "app" },
         h("aside", { className: "sidebar" },
           h("div", { className: "brand" },
@@ -1713,24 +1869,10 @@
           ),
           h("div", { className: "side-section" },
             h("div", { className: "section-title" },
-              h("span", null, "登录与课程"),
-              h(Badge, { tone: form.username ? "ok" : "neutral" }, form.username ? "已填账号" : "待填写")
+              h("span", null, "学号"),
+              h(Badge, { tone: "ok" }, form.username)
             ),
             h("div", { className: "form-grid" },
-              h("label", null, "账号",
-                h("input", {
-                  value: form.username,
-                  onChange: e => update("username", e.target.value),
-                  placeholder: "学号/账号"
-                })
-              ),
-              h("label", null, "密码",
-                h(MaskedPasswordInput, {
-                  value: form.password,
-                  onChange: value => update("password", value),
-                  placeholder: "留空则使用 .env"
-                })
-              ),
               h("label", null, "课程",
                 h("select", {
                   value: form.course_id,
@@ -1743,7 +1885,8 @@
                   courses.map(c => h("option", { key: c.id, value: c.id }, c.id + "  " + c.name))
                 )
               ),
-              h("button", { onClick: () => loadCourses(true), disabled: busy, className: "subtle section-action" }, "刷新课程")
+              h("button", { onClick: () => loadCourses(true), disabled: busy, className: "subtle section-action" }, "刷新课程"),
+              h("button", { onClick: logout, disabled: busy, className: "section-action" }, "退出登录")
             )
           )
         ),

@@ -25,8 +25,6 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
-
 import cache
 from core import (
     coursewares_with_cache,
@@ -64,9 +62,9 @@ class ApiHandler(SimpleHTTPRequestHandler):
         if self.path.startswith("/api/config"):
             self._json(
                 {
-                    "username": os.getenv("HZCU_USERNAME", ""),
-                    "course_id": os.getenv("COURSE_ID", ""),
-                    "has_password": bool(os.getenv("HZCU_PASSWORD")),
+                    "username": "",
+                    "course_id": "",
+                    "has_password": False,
                 }
             )
             return
@@ -313,9 +311,9 @@ class ApiHandler(SimpleHTTPRequestHandler):
         need_course: bool = True,
         need_password: bool = True,
     ) -> tuple[str, str, str]:
-        username = str(payload.get("username") or os.getenv("HZCU_USERNAME") or "").strip()
-        password = str(payload.get("password") or os.getenv("HZCU_PASSWORD") or "")
-        course = str(payload.get("course_id") or os.getenv("COURSE_ID") or "").strip()
+        username = str(payload.get("username") or "").strip()
+        password = str(payload.get("password") or "")
+        course = str(payload.get("course_id") or "").strip()
         if not username:
             raise ValueError("缺少账号")
         if need_password and not password:
@@ -773,7 +771,6 @@ def _dedupe_name(used: set[str], name: str) -> str:
 
 
 def main() -> int:
-    load_dotenv()
     if not (WEB_ROOT / "index.html").exists():
         print("web/index.html 不存在")
         return 2
