@@ -230,6 +230,126 @@
       flex-wrap: wrap;
     }
 
+    .course-home,
+    .workspace-shell {
+      min-height: 100vh;
+      padding: 22px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 16px;
+    }
+
+    .workspace-shell {
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .course-home-head,
+    .workspace-head {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, .92);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .top-brand {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      align-items: center;
+      gap: 12px;
+      min-width: 260px;
+    }
+
+    .top-title {
+      min-width: 0;
+      display: grid;
+      gap: 3px;
+    }
+
+    .top-title h1 {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.2;
+      letter-spacing: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .top-title p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .head-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .course-grid {
+      min-height: 0;
+      overflow: auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      align-content: start;
+      gap: 12px;
+    }
+
+    .course-card {
+      min-height: 138px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow-soft);
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      align-content: space-between;
+      transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+    }
+
+    .course-card:hover {
+      border-color: var(--line-strong);
+      box-shadow: var(--shadow);
+      transform: translateY(-1px);
+    }
+
+    .course-card-title {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .course-card-title strong {
+      color: var(--ink);
+      font-size: 15px;
+      line-height: 1.35;
+    }
+
+    .course-card-title span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .workspace-body {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 16px;
+      overflow: hidden;
+    }
+
     .sidebar {
       position: sticky;
       top: 0;
@@ -958,6 +1078,49 @@
       );
     }
 
+    function CourseHome({ courses, busy, status, onRefresh, onEnter, onLogout }) {
+      const statusClass = "busy-state " + (busy ? "active" : "") + (status.tone === "error" ? " error" : "");
+      return h("div", { className: "course-home" },
+        h("header", { className: "course-home-head" },
+          h("div", { className: "top-brand" },
+            h("div", { className: "brand-mark" }, "TC"),
+            h("div", { className: "top-title" },
+              h("h1", null, "选择课程"),
+              h("p", null, courses.length ? "共 " + courses.length + " 门课程" : "登录后从课程进入资料与作业")
+            )
+          ),
+          h("div", { className: "head-actions" },
+            h("span", { className: statusClass, title: status.text },
+              h("span", { className: "busy-dot" }),
+              h("span", { className: "busy-text" }, status.text)
+            ),
+            h("button", { onClick: onRefresh, disabled: busy, className: "subtle" }, "刷新课程"),
+            h("button", { onClick: onLogout, disabled: busy }, "退出登录")
+          )
+        ),
+        courses.length === 0
+          ? h("section", { className: "panel" },
+            h(EmptyState, { title: "暂无课程数据" },
+              h("button", { type: "button", onClick: onRefresh, disabled: busy, className: "primary" }, "刷新课程")
+            )
+          )
+          : h("section", { className: "course-grid" },
+            courses.map(course => h("article", { className: "course-card", key: course.id },
+              h("div", { className: "course-card-title" },
+                h("strong", null, course.name || "未命名课程"),
+                h("span", null, "课程 ID " + course.id)
+              ),
+              h("button", {
+                type: "button",
+                className: "primary",
+                onClick: () => onEnter(course),
+                disabled: busy
+              }, "进入课程")
+            ))
+          )
+      );
+    }
+
     function DownloadStatusIcon({ status }) {
       const normalized = status || "idle";
       const title = {
@@ -1088,7 +1251,7 @@
       const [form, setForm] = React.useState({
         username: (auth && auth.username) || "",
         password: (auth && auth.password) || "",
-        course_id: (auth && auth.course_id) || ""
+        course_id: ""
       });
       const [loginForm, setLoginForm] = React.useState({
         username: (auth && auth.username) || "",
@@ -1112,10 +1275,6 @@
       React.useEffect(() => {
         if (!auth || !auth.username || !auth.password) return;
         loadCourses(false).catch(() => {});
-        if (auth.course_id) {
-          loadHomeworks(false).catch(() => {});
-          loadCoursewares(false).catch(() => {});
-        }
       }, []);
 
       React.useEffect(() => {
@@ -1163,13 +1322,16 @@
         });
       }, [homeworks]);
 
-      function update(key, value) {
-        if (key === "course_id" && form.username && form.password) {
-          const nextAuth = { username: form.username, password: form.password, course_id: value };
-          writeAuthCookie(nextAuth);
-          setAuth(nextAuth);
-        }
-        setForm(f => ({ ...f, [key]: value }));
+      function clearCourseState() {
+        setHomeworks([]);
+        setCoursewares([]);
+        setSelected(new Set());
+        setSelectedMaterials(new Set());
+        setSelectedHomeworks(new Set());
+        setSelectedAssignments(new Set());
+        setSelectedSubmissions(new Set());
+        setDownloadStatuses({});
+        setSubmitTarget("");
       }
 
       function updateLogin(key, value) {
@@ -1192,10 +1354,10 @@
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || "登录失败");
-          const nextAuth = { username, password, course_id: form.course_id || "" };
+          const nextAuth = { username, password };
           writeAuthCookie(nextAuth);
           setAuth(nextAuth);
-          setForm(f => ({ ...f, username, password }));
+          setForm(f => ({ ...f, username, password, course_id: "" }));
           setCourses(data.courses || []);
           setStatus({ tone: "ok", text: "登录成功" });
         } catch (err) {
@@ -1222,6 +1384,49 @@
         setSubmitTarget("");
         setTab("coursewares");
         setStatus({ tone: "neutral", text: "已退出" });
+      }
+
+      async function enterCourse(course) {
+        const courseId = String(course.id || "");
+        if (!courseId) return;
+        clearCourseState();
+        setForm(f => ({ ...f, course_id: courseId }));
+        setTab("coursewares");
+        setStatus({ tone: "neutral", text: "正在进入课程" });
+        setBusy(true);
+        try {
+          const payload = { ...form, course_id: courseId, refresh: false };
+          const [coursewareRes, homeworkRes] = await Promise.all([
+            fetch("/api/coursewares", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            }),
+            fetch("/api/homeworks", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            })
+          ]);
+          const coursewareData = await coursewareRes.json();
+          const homeworkData = await homeworkRes.json();
+          if (!coursewareRes.ok) throw new Error(coursewareData.error || "课件读取失败");
+          if (!homeworkRes.ok) throw new Error(homeworkData.error || "作业读取失败");
+          setCoursewares(coursewareData.coursewares || []);
+          setHomeworks(homeworkData.homeworks || []);
+          setStatus({ tone: "ok", text: "已进入课程" });
+        } catch (err) {
+          setStatus({ tone: "error", text: err.message });
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      function leaveCourse() {
+        clearCourseState();
+        setForm(f => ({ ...f, course_id: "" }));
+        setTab("coursewares");
+        setStatus({ tone: "neutral", text: "请选择课程" });
       }
 
       function summarize(lines, fallback) {
@@ -1858,39 +2063,37 @@
         });
       }
 
-      return h("div", { className: "app" },
-        h("aside", { className: "sidebar" },
-          h("div", { className: "brand" },
+      if (!form.course_id) {
+        return h(CourseHome, {
+          courses,
+          busy,
+          status,
+          onRefresh: () => loadCourses(true),
+          onEnter: enterCourse,
+          onLogout: logout
+        });
+      }
+
+      const activeCourse = courses.find(course => String(course.id) === String(form.course_id)) || {
+        id: form.course_id,
+        name: "当前课程"
+      };
+
+      return h("div", { className: "workspace-shell" },
+        h("header", { className: "workspace-head" },
+          h("div", { className: "top-brand" },
             h("div", { className: "brand-mark" }, "TC"),
-            h("div", null,
-              h("h1", null, "学在城院下载器"),
-              h("p", null, "课程资料、作业附件与提交文件")
+            h("div", { className: "top-title" },
+              h("h1", { title: activeCourse.name || "当前课程" }, activeCourse.name || "当前课程"),
+              h("p", null, "课程 ID " + activeCourse.id)
             )
           ),
-          h("div", { className: "side-section" },
-            h("div", { className: "section-title" },
-              h("span", null, "学号"),
-              h(Badge, { tone: "ok" }, form.username)
-            ),
-            h("div", { className: "form-grid" },
-              h("label", null, "课程",
-                h("select", {
-                  value: form.course_id,
-                  onChange: e => update("course_id", e.target.value)
-                },
-                  h("option", { value: "" }, "刷新课程后选择课程"),
-                  form.course_id && !courses.some(c => String(c.id) === String(form.course_id))
-                    ? h("option", { value: form.course_id }, "当前课程 ID " + form.course_id)
-                    : null,
-                  courses.map(c => h("option", { key: c.id, value: c.id }, c.id + "  " + c.name))
-                )
-              ),
-              h("button", { onClick: () => loadCourses(true), disabled: busy, className: "subtle section-action" }, "刷新课程"),
-              h("button", { onClick: logout, disabled: busy, className: "section-action" }, "退出登录")
-            )
+          h("div", { className: "head-actions" },
+            h("button", { onClick: leaveCourse, disabled: busy, className: "subtle" }, "返回课程"),
+            h("button", { onClick: logout, disabled: busy }, "退出登录")
           )
         ),
-        h("main", { className: "content" },
+        h("main", { className: "workspace-body" },
           h("div", { className: "toolbar" },
             h("div", { className: "tabs" },
               h("button", {

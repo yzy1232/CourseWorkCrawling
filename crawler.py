@@ -289,7 +289,8 @@ def _iter_homework_pages(
             if emitted:
                 return
         except ApiError as exc:
-            last_err = exc
+            if "端点不存在 (404)" not in str(exc):
+                last_err = exc
             continue
     if last_err:
         raise last_err
