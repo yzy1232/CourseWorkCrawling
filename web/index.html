@@ -9,181 +9,373 @@
   <style>
     :root {
       color-scheme: light;
-      --bg: #f4f6f8;
+      --bg: #f5f7fa;
+      --bg-strong: #eef3f7;
       --panel: #ffffff;
-      --line: #d8dee6;
-      --ink: #1f2933;
-      --muted: #637083;
-      --brand: #1769aa;
-      --brand-strong: #0f4f82;
+      --panel-soft: #f8fafc;
+      --line: #d7dee8;
+      --line-strong: #b9c5d3;
+      --ink: #17202a;
+      --muted: #617083;
+      --muted-strong: #435163;
+      --brand: #126b7a;
+      --brand-strong: #0b4f5b;
+      --brand-soft: #e7f4f6;
+      --blue: #255ca8;
+      --blue-soft: #edf4ff;
       --ok: #16794c;
-      --warn: #a85b00;
+      --ok-soft: #e9f7ef;
+      --warn: #9a5a00;
+      --warn-soft: #fff4df;
       --danger: #b42318;
-      --shadow: 0 10px 24px rgba(31, 41, 51, .08);
+      --danger-soft: #fff0ee;
+      --shadow: 0 14px 36px rgba(24, 34, 44, .08);
+      --shadow-soft: 0 6px 18px rgba(24, 34, 44, .06);
     }
 
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       min-width: 320px;
-      background: var(--bg);
+      min-height: 100vh;
+      background:
+        linear-gradient(180deg, rgba(231, 244, 246, .82) 0, rgba(245, 247, 250, 0) 300px),
+        var(--bg);
       color: var(--ink);
-      font: 14px/1.45 "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      font: 14px/1.5 "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      letter-spacing: 0;
     }
-    button, input, select {
+
+    button, input, select, textarea {
       font: inherit;
+      letter-spacing: 0;
     }
+
     button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 36px;
       border: 1px solid var(--line);
-      border-radius: 6px;
+      border-radius: 7px;
       background: #fff;
       color: var(--ink);
-      min-height: 34px;
-      padding: 0 12px;
+      padding: 0 13px;
       cursor: pointer;
+      white-space: nowrap;
+      transition: background .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
     }
+
+    button:hover:not(:disabled) {
+      border-color: var(--line-strong);
+      background: var(--panel-soft);
+      box-shadow: var(--shadow-soft);
+      transform: translateY(-1px);
+    }
+
     button.primary {
       border-color: var(--brand);
       background: var(--brand);
       color: #fff;
     }
+
+    button.primary:hover:not(:disabled) {
+      border-color: var(--brand-strong);
+      background: var(--brand-strong);
+    }
+
+    button.subtle {
+      background: var(--panel-soft);
+    }
+
     button:disabled {
       cursor: not-allowed;
-      opacity: .58;
+      opacity: .54;
+      transform: none;
+      box-shadow: none;
     }
-    input, select {
+
+    input, select, textarea {
       width: 100%;
-      min-height: 34px;
+      min-height: 38px;
       border: 1px solid var(--line);
-      border-radius: 6px;
+      border-radius: 7px;
       background: #fff;
       color: var(--ink);
-      padding: 5px 8px;
+      padding: 7px 10px;
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
     }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(18, 107, 122, .14);
+    }
+
+    input::placeholder, textarea::placeholder {
+      color: #98a4b3;
+    }
+
+    textarea {
+      min-height: 96px;
+      resize: vertical;
+    }
+
     label {
       display: grid;
-      gap: 5px;
-      color: var(--muted);
+      gap: 6px;
+      color: var(--muted-strong);
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
     }
+
     table {
       width: 100%;
-      border-collapse: collapse;
+      border-collapse: separate;
+      border-spacing: 0;
       background: var(--panel);
     }
+
     th, td {
       border-bottom: 1px solid var(--line);
-      padding: 9px 10px;
+      padding: 12px 14px;
       text-align: left;
       vertical-align: top;
     }
+
     th {
-      background: #eef2f6;
-      color: #3d4a5c;
-      font-size: 12px;
       position: sticky;
       top: 0;
       z-index: 1;
+      background: #f1f5f9;
+      color: var(--muted-strong);
+      font-size: 12px;
+      font-weight: 800;
     }
+
+    tbody tr {
+      transition: background .15s ease;
+    }
+
+    tbody tr:not(.details-row) {
+      animation: row-in .22s ease both;
+    }
+
+    tbody tr:hover td {
+      background: #fbfdff;
+    }
+
     tr.selected td {
-      background: #e9f3fb;
+      background: #edf8fa;
     }
+
+    tr.selected:hover td {
+      background: #e6f4f7;
+    }
+
+    @keyframes row-in {
+      from { opacity: 0; transform: translateY(7px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     .app {
       display: grid;
-      grid-template-columns: 320px minmax(0, 1fr);
+      grid-template-columns: 340px minmax(0, 1fr);
       min-height: 100vh;
     }
+
     .sidebar {
-      background: var(--panel);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      background: rgba(255, 255, 255, .92);
       border-right: 1px solid var(--line);
-      padding: 18px;
+      padding: 22px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 18px;
+      backdrop-filter: blur(12px);
     }
+
     .brand {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 2px;
+    }
+
+    .brand-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--brand), var(--blue));
+      color: #fff;
+      font-weight: 900;
+      box-shadow: 0 8px 20px rgba(18, 107, 122, .24);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 21px;
+      line-height: 1.18;
+      letter-spacing: 0;
+    }
+
+    .brand p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .side-section {
+      display: grid;
+      gap: 12px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+
+    .section-title {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      padding-bottom: 4px;
-    }
-    .brand h1 {
-      margin: 0;
-      font-size: 20px;
-      letter-spacing: 0;
-    }
-    .pill {
-      border: 1px solid #c7d7e6;
-      border-radius: 999px;
-      color: var(--brand-strong);
-      background: #edf6fd;
-      padding: 3px 8px;
+      gap: 8px;
+      color: var(--muted-strong);
       font-size: 12px;
-      white-space: nowrap;
+      font-weight: 800;
     }
+
     .form-grid {
       display: grid;
-      gap: 10px;
+      gap: 12px;
     }
-    .inline {
-      display: grid;
-      grid-template-columns: 1fr 72px;
-      gap: 8px;
-      align-items: end;
-    }
-    .checkline {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--ink);
-      font-size: 13px;
+
+    .field-note {
+      color: var(--muted);
+      font-size: 12px;
       font-weight: 500;
     }
-    .checkline input {
+
+    .row-check {
       width: 16px;
       min-height: 16px;
+      accent-color: var(--brand);
+      padding: 0;
     }
-    .sidebar-actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
+
+    .section-action {
+      width: 100%;
     }
+
     .content {
       min-width: 0;
-      padding: 18px;
+      height: 100vh;
+      padding: 22px;
       display: grid;
-      grid-template-rows: auto minmax(0, 1fr) 180px;
-      gap: 14px;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 16px;
+      overflow: hidden;
     }
+
     .toolbar {
-      background: var(--panel);
+      background: rgba(255, 255, 255, .9);
       border: 1px solid var(--line);
       border-radius: 8px;
       box-shadow: var(--shadow);
-      padding: 12px;
-      display: flex;
+      padding: 13px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
       align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      flex-wrap: wrap;
+      backdrop-filter: blur(12px);
     }
+
     .tabs, .actions {
       display: flex;
       align-items: center;
       gap: 8px;
       flex-wrap: wrap;
     }
+
     .tab {
-      min-width: 76px;
-      background: #f8fafc;
+      min-width: 84px;
+      background: var(--panel-soft);
+      font-weight: 800;
     }
+
     .tab.active {
       border-color: var(--brand);
       color: var(--brand-strong);
-      background: #edf6fd;
+      background: var(--brand-soft);
+      box-shadow: inset 0 0 0 1px rgba(18, 107, 122, .08);
     }
+
+    .busy-state {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+      max-width: min(460px, 100%);
+      min-width: 0;
+    }
+
+    .busy-dot {
+      width: 8px;
+      min-width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 0 3px rgba(22, 121, 76, .12);
+    }
+
+    .busy-text {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .busy-state.active .busy-dot {
+      background: var(--warn);
+      box-shadow: 0 0 0 3px rgba(154, 90, 0, .14);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    .busy-state.error {
+      color: var(--danger);
+    }
+
+    .busy-state.error .busy-dot {
+      background: var(--danger);
+      box-shadow: 0 0 0 3px rgba(180, 35, 24, .12);
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: .75; }
+      50% { transform: scale(1.28); opacity: 1; }
+    }
+
+    .loading-spinner {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid var(--line);
+      border-top-color: var(--brand);
+      animation: spin .75s linear infinite;
+      justify-self: center;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     .panel {
       min-height: 0;
       background: var(--panel);
@@ -194,67 +386,355 @@
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
     }
+
     .panel-head {
-      min-height: 48px;
-      padding: 10px 12px;
+      min-height: 54px;
+      padding: 12px 14px;
       border-bottom: 1px solid var(--line);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
+      gap: 12px;
       flex-wrap: wrap;
+      background: linear-gradient(180deg, #fff, #fbfcfe);
     }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
     .panel-head h2 {
       margin: 0;
       font-size: 16px;
+      line-height: 1.25;
       letter-spacing: 0;
     }
+
     .muted {
       color: var(--muted);
     }
+
+    .panel-meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
     .table-wrap {
       overflow: auto;
       min-height: 220px;
     }
-    .empty {
+
+    .title-cell {
+      display: grid;
+      gap: 4px;
+      min-width: 220px;
+    }
+
+    .title-cell strong {
+      color: var(--ink);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .description {
+      max-width: 760px;
       color: var(--muted);
-      padding: 28px;
-      text-align: center;
+      font-size: 12px;
+      line-height: 1.45;
     }
-    .status-ok {
-      color: var(--ok);
-      font-weight: 700;
+
+    .courseware-title {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      min-width: 240px;
     }
-    .status-warn {
-      color: var(--warn);
-      font-weight: 700;
+
+    .expand-btn {
+      width: 30px;
+      min-width: 30px;
+      min-height: 30px;
+      padding: 0;
+      border-radius: 6px;
+      font-weight: 900;
+      line-height: 1;
     }
-    .logs {
-      background: #101820;
-      color: #d7e3ef;
-      border-radius: 8px;
-      border: 1px solid #22313f;
-      box-shadow: var(--shadow);
-      padding: 12px;
-      overflow: auto;
-      white-space: pre-wrap;
-      font: 12px/1.5 Consolas, "Courier New", monospace;
+
+    .details-row td {
+      background: #fbfdff;
+      padding: 0;
     }
-    .error {
-      color: var(--danger);
+
+    .materials-panel {
+      display: grid;
+      gap: 14px;
+      padding: 12px 14px 14px 62px;
+      border-top: 1px solid rgba(215, 222, 232, .55);
+    }
+
+    .materials-group {
+      display: grid;
+      gap: 10px;
+    }
+
+    .materials-group + .materials-group {
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .materials-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .materials-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .material-item {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: 10px;
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fff;
+      padding: 8px 10px;
+    }
+
+    .material-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--ink);
+      font-size: 13px;
       font-weight: 700;
     }
 
-    @media (max-width: 860px) {
+    .material-meta {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .material-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .submit-layout {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(320px, 430px) minmax(0, 1fr);
+      gap: 0;
+    }
+
+    .submit-form {
+      padding: 16px;
+      border-right: 1px solid var(--line);
+      display: grid;
+      align-content: start;
+      gap: 14px;
+      background: #fbfdff;
+      overflow: auto;
+    }
+
+    .file-picker {
+      display: grid;
+      gap: 10px;
+      min-height: 132px;
+      border: 1px dashed var(--line-strong);
+      border-radius: 8px;
+      background: #fff;
+      padding: 14px;
+    }
+
+    .file-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .file-chip {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel-soft);
+      padding: 7px 9px;
+    }
+
+    .file-chip strong {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 13px;
+    }
+
+    .submit-help {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .homework-picker {
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .empty {
+      min-height: 260px;
+      display: grid;
+      place-items: center;
+      padding: 28px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .empty-box {
+      display: grid;
+      gap: 7px;
+      max-width: 360px;
+    }
+
+    .empty-title {
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 24px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .badge-ok {
+      border-color: #bfebd1;
+      background: var(--ok-soft);
+      color: var(--ok);
+    }
+
+    .badge-warn {
+      border-color: #f3d39c;
+      background: var(--warn-soft);
+      color: var(--warn);
+    }
+
+    .badge-blue {
+      border-color: #c9dcfb;
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .badge-neutral {
+      border-color: var(--line);
+      background: var(--panel-soft);
+      color: var(--muted-strong);
+    }
+
+    @media (max-width: 1020px) {
       .app {
         grid-template-columns: 1fr;
       }
+
       .sidebar {
+        position: static;
+        height: auto;
         border-right: 0;
         border-bottom: 1px solid var(--line);
       }
+
       .content {
-        grid-template-rows: auto minmax(360px, 1fr) 180px;
+        height: auto;
+        min-height: calc(100vh - 1px);
+        grid-template-rows: auto minmax(420px, 1fr);
+        overflow: visible;
+      }
+
+      .toolbar {
+        grid-template-columns: 1fr;
+      }
+
+      .submit-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .submit-form {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+    }
+
+    @media (max-width: 620px) {
+      .sidebar,
+      .content {
+        padding: 16px;
+      }
+
+      .brand {
+        grid-template-columns: 40px minmax(0, 1fr);
+      }
+
+      .brand-mark {
+        width: 40px;
+        height: 40px;
+      }
+
+      .actions,
+      .tabs {
+        width: 100%;
+      }
+
+      .actions button,
+      .tabs button {
+        flex: 1 1 132px;
+      }
+
+      th, td {
+        padding: 10px 11px;
+      }
+
+      .materials-panel {
+        padding-left: 14px;
+      }
+
+      .material-item {
+        grid-template-columns: 18px minmax(0, 1fr);
+        align-items: start;
+      }
+
+      .material-actions,
+      .material-meta {
+        grid-column: 2;
       }
     }
   </style>
@@ -264,49 +744,232 @@
   <script>
     const h = React.createElement;
 
+    function Badge({ tone, children }) {
+      return h("span", { className: "badge badge-" + tone }, children);
+    }
+
+    function EmptyState({ title, children }) {
+      return h("div", { className: "empty" },
+        h("div", { className: "empty-box" },
+          h("div", { className: "empty-title" }, title),
+          h("div", null, children)
+        )
+      );
+    }
+
+    function LoadingState({ title, children }) {
+      return h("div", { className: "empty" },
+        h("div", { className: "empty-box" },
+          h("div", { className: "loading-spinner" }),
+          h("div", { className: "empty-title" }, title),
+          h("div", null, children)
+        )
+      );
+    }
+
+    function formatSize(size) {
+      const n = Number(size);
+      if (!Number.isFinite(n) || n <= 0) return "大小未知";
+      const units = ["B", "KB", "MB", "GB"];
+      let value = n;
+      let unit = 0;
+      while (value >= 1024 && unit < units.length - 1) {
+        value /= 1024;
+        unit += 1;
+      }
+      return (unit === 0 ? value.toFixed(0) : value.toFixed(value >= 10 ? 1 : 2)) + " " + units[unit];
+    }
+
+    function MaskedPasswordInput({ value, onChange, placeholder }) {
+      const inputRef = React.useRef(null);
+      const masked = "*".repeat(value.length);
+
+      function setCaret(pos) {
+        requestAnimationFrame(() => {
+          const el = inputRef.current;
+          if (el) el.setSelectionRange(pos, pos);
+        });
+      }
+
+      function replaceSelection(text) {
+        const el = inputRef.current;
+        const start = el ? el.selectionStart || 0 : value.length;
+        const end = el ? el.selectionEnd || start : start;
+        const next = value.slice(0, start) + text + value.slice(end);
+        onChange(next);
+        setCaret(start + text.length);
+      }
+
+      function removeSelection(backward) {
+        const el = inputRef.current;
+        const start = el ? el.selectionStart || 0 : value.length;
+        const end = el ? el.selectionEnd || start : start;
+        if (start !== end) {
+          onChange(value.slice(0, start) + value.slice(end));
+          setCaret(start);
+          return;
+        }
+        if (backward && start > 0) {
+          onChange(value.slice(0, start - 1) + value.slice(start));
+          setCaret(start - 1);
+        } else if (!backward && start < value.length) {
+          onChange(value.slice(0, start) + value.slice(start + 1));
+          setCaret(start);
+        }
+      }
+
+      function handleKeyDown(e) {
+        if (e.key === "Backspace") {
+          e.preventDefault();
+          removeSelection(true);
+          return;
+        }
+        if (e.key === "Delete") {
+          e.preventDefault();
+          removeSelection(false);
+          return;
+        }
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          e.preventDefault();
+          replaceSelection(e.key);
+        }
+      }
+
+      function handlePaste(e) {
+        e.preventDefault();
+        replaceSelection(e.clipboardData.getData("text"));
+      }
+
+      return h("input", {
+        ref: inputRef,
+        type: "text",
+        value: masked,
+        onKeyDown: handleKeyDown,
+        onPaste: handlePaste,
+        onChange: () => {},
+        placeholder
+      });
+    }
+
+    function materialKey(coursewareId, material, idx) {
+      return String(coursewareId) + ":" + String(material.id || material.url || material.name || idx);
+    }
+
+    function assignmentKey(homeworkId, assignment, idx) {
+      return String(homeworkId) + ":" + String(assignment.id || assignment.url || assignment.name || idx);
+    }
+
+    function submissionKey(homeworkId, submission, idx) {
+      return String(homeworkId) + ":" + String(submission.id || submission.url || submission.name || idx);
+    }
+
     function App() {
       const [form, setForm] = React.useState({
         username: "",
         password: "",
-        course_id: "",
-        output_dir: "downloads",
-        parallel: 4,
-        download_submissions: true
+        course_id: ""
       });
       const [courses, setCourses] = React.useState([]);
       const [homeworks, setHomeworks] = React.useState([]);
+      const [selectedHomeworks, setSelectedHomeworks] = React.useState(new Set());
+      const [selectedAssignments, setSelectedAssignments] = React.useState(new Set());
+      const [selectedSubmissions, setSelectedSubmissions] = React.useState(new Set());
       const [coursewares, setCoursewares] = React.useState([]);
       const [selected, setSelected] = React.useState(new Set());
+      const [selectedMaterials, setSelectedMaterials] = React.useState(new Set());
       const [tab, setTab] = React.useState("coursewares");
+      const [submitTarget, setSubmitTarget] = React.useState("");
       const [busy, setBusy] = React.useState(false);
-      const [logs, setLogs] = React.useState(["等待操作。"]);
-      const [error, setError] = React.useState("");
+      const [loadingList, setLoadingList] = React.useState(null);
+      const [status, setStatus] = React.useState({ tone: "neutral", text: "就绪" });
 
       React.useEffect(() => {
         fetch("/api/config")
           .then(r => r.json())
-          .then(cfg => setForm(f => ({
-            ...f,
-            username: cfg.username || "",
-            course_id: cfg.course_id || "",
-            output_dir: cfg.output_dir || "downloads"
-          })))
+          .then(cfg => {
+            setForm(f => ({
+              ...f,
+              username: cfg.username || "",
+              course_id: cfg.course_id || ""
+            }));
+            if (cfg.username) {
+              loadCourses(false, {
+                username: cfg.username || "",
+                course_id: cfg.course_id || ""
+              }).catch(() => {});
+            }
+            if (cfg.course_id) {
+              loadHomeworks(false, {
+                username: cfg.username || "",
+                course_id: cfg.course_id || ""
+              }).catch(() => {});
+              loadCoursewares(false, {
+                username: cfg.username || "",
+                course_id: cfg.course_id || ""
+              }).catch(() => {});
+            }
+          })
           .catch(() => {});
       }, []);
+
+      React.useEffect(() => {
+        setSelectedMaterials(prev => {
+          if (prev.size === 0) return prev;
+          const valid = new Set();
+          coursewares.forEach(row => {
+            (row.materials || []).forEach((material, idx) => {
+              valid.add(materialKey(row.id, material, idx));
+            });
+          });
+          const next = new Set(Array.from(prev).filter(key => valid.has(key)));
+          return next.size === prev.size ? prev : next;
+        });
+      }, [coursewares]);
+
+      React.useEffect(() => {
+        setSelectedHomeworks(prev => {
+          if (prev.size === 0) return prev;
+          const valid = new Set(homeworks.map(row => String(row.id)));
+          const next = new Set(Array.from(prev).filter(id => valid.has(id)));
+          return next.size === prev.size ? prev : next;
+        });
+        setSelectedAssignments(prev => {
+          if (prev.size === 0) return prev;
+          const valid = new Set();
+          homeworks.forEach(row => {
+            (row.assignment || []).forEach((assignment, idx) => {
+              valid.add(assignmentKey(row.id, assignment, idx));
+            });
+          });
+          const next = new Set(Array.from(prev).filter(key => valid.has(key)));
+          return next.size === prev.size ? prev : next;
+        });
+        setSelectedSubmissions(prev => {
+          if (prev.size === 0) return prev;
+          const valid = new Set();
+          homeworks.forEach(row => {
+            (row.submission || []).forEach((submission, idx) => {
+              valid.add(submissionKey(row.id, submission, idx));
+            });
+          });
+          const next = new Set(Array.from(prev).filter(key => valid.has(key)));
+          return next.size === prev.size ? prev : next;
+        });
+      }, [homeworks]);
 
       function update(key, value) {
         setForm(f => ({ ...f, [key]: value }));
       }
 
-      function append(lines) {
-        if (!lines) return;
-        const arr = Array.isArray(lines) ? lines : [String(lines)];
-        setLogs(prev => prev.concat(arr));
+      function summarize(lines, fallback) {
+        const arr = Array.isArray(lines) ? lines : (lines ? [String(lines)] : []);
+        const last = arr.filter(Boolean).slice(-1)[0];
+        return last || fallback;
       }
 
       async function api(path, extra) {
         setBusy(true);
-        setError("");
+        setStatus({ tone: "neutral", text: "处理中" });
         try {
           const res = await fetch(path, {
             method: "POST",
@@ -315,51 +978,303 @@
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || "请求失败");
-          append(data.logs);
+          setStatus({ tone: "ok", text: summarize(data.logs, "操作完成") });
           return data;
         } catch (err) {
-          setError(err.message);
-          append("✗ " + err.message);
+          setStatus({ tone: "error", text: err.message });
           throw err;
         } finally {
           setBusy(false);
         }
       }
 
-      async function loadCourses() {
-        const data = await api("/api/courses", { refresh: true });
+      async function streamOverview(path, extra, options) {
+        const label = options.label;
+        const kind = options.kind;
+        let doneEvent = null;
+        setBusy(true);
+        setLoadingList(kind);
+        setStatus({ tone: "neutral", text: "正在刷新" + label });
+        try {
+          const res = await fetch(path, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...form, ...extra })
+          });
+          if (!res.ok) {
+            const text = await res.text();
+            let message = "请求失败";
+            try {
+              const data = JSON.parse(text);
+              message = data.error || message;
+            } catch (_) {
+              message = text || message;
+            }
+            throw new Error(message);
+          }
+          if (!res.body) throw new Error("当前浏览器不支持流式读取");
+
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+
+          function handleEvent(event) {
+            if (!event || !event.type) return;
+            if (event.type === "log") {
+              setStatus({ tone: "neutral", text: event.message || ("正在刷新" + label) });
+              return;
+            }
+            if (event.type === "start") {
+              const total = Number(event.total) || 0;
+              setStatus({ tone: "neutral", text: label + "列表已获取，共 " + total + " 个" });
+              return;
+            }
+            if (event.type === "item") {
+              options.onItem(event.record, event);
+              const total = Number(event.total) || 0;
+              const index = Number(event.index) || 0;
+              setStatus({
+                tone: "neutral",
+                text: "正在刷新" + label + " " + index + (total ? "/" + total : "")
+              });
+              return;
+            }
+            if (event.type === "done") {
+              doneEvent = event;
+              return;
+            }
+            if (event.type === "error") {
+              throw new Error(event.error || "刷新失败");
+            }
+          }
+
+          function handleLine(line) {
+            const trimmed = line.trim();
+            if (!trimmed) return;
+            handleEvent(JSON.parse(trimmed));
+          }
+
+          while (true) {
+            const result = await reader.read();
+            if (result.done) break;
+            buffer += decoder.decode(result.value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+            lines.forEach(handleLine);
+          }
+          buffer += decoder.decode();
+          handleLine(buffer);
+
+          if (!doneEvent) throw new Error("刷新中断");
+          setStatus({
+            tone: doneEvent.stale ? "neutral" : "ok",
+            text: doneEvent.message || (label + "已刷新（" + (doneEvent.count || 0) + " 个）")
+          });
+          return doneEvent;
+        } catch (err) {
+          setStatus({ tone: "error", text: err.message });
+          throw err;
+        } finally {
+          setBusy(false);
+          setLoadingList(null);
+        }
+      }
+
+      function filenameFromDisposition(header, fallback) {
+        const value = header || "";
+        const m = value.match(/filename="?([^";]+)"?/i);
+        return m ? m[1] : fallback;
+      }
+
+      async function downloadZip(path, extra, fallbackName) {
+        setBusy(true);
+        setStatus({ tone: "neutral", text: "正在打包下载" });
+        try {
+          const res = await fetch(path, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...form, ...extra })
+          });
+          if (!res.ok) {
+            let message = "下载失败";
+            try {
+              const data = await res.json();
+              message = data.error || message;
+            } catch (_) {}
+            throw new Error(message);
+          }
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filenameFromDisposition(res.headers.get("Content-Disposition"), fallbackName);
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 60 * 1000);
+          setStatus({ tone: "ok", text: "已交给浏览器下载" });
+        } catch (err) {
+          setStatus({ tone: "error", text: err.message });
+          throw err;
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      function cacheStatus(data, label) {
+        if (!data.cached_at) return label + "缓存不可用";
+        return label + "缓存已读取" + (data.stale ? "（可能已过期）" : "");
+      }
+
+      async function loadCourses(refresh, override) {
+        const data = await api("/api/courses", { ...(override || {}), refresh });
         setCourses(data.courses || []);
+        setStatus({ tone: data.stale ? "neutral" : "ok", text: refresh ? "课程已刷新" : cacheStatus(data, "课程") });
       }
 
-      async function loadHomeworks() {
-        const data = await api("/api/homeworks", { refresh: true });
+      async function loadHomeworks(refresh, override) {
+        if (refresh) {
+          setHomeworks([]);
+          setSelectedHomeworks(new Set());
+          setSelectedAssignments(new Set());
+          setSelectedSubmissions(new Set());
+          setTab("homeworks");
+          await streamOverview(
+            "/api/homeworks/stream",
+            { ...(override || {}), refresh },
+            {
+              kind: "homeworks",
+              label: "作业",
+              onItem: record => setHomeworks(prev => [...prev, record])
+            }
+          );
+          return;
+        }
+        const data = await api("/api/homeworks", { ...(override || {}), refresh });
         setHomeworks(data.homeworks || []);
+        setSelectedHomeworks(new Set());
+        setSelectedAssignments(new Set());
+        setSelectedSubmissions(new Set());
         setTab("homeworks");
+        setStatus({ tone: data.stale ? "neutral" : "ok", text: refresh ? "作业已刷新" : cacheStatus(data, "作业") });
       }
 
-      async function loadCoursewares() {
-        const data = await api("/api/coursewares", { refresh: true });
+      async function loadCoursewares(refresh, override) {
+        if (refresh) {
+          setCoursewares([]);
+          setSelected(new Set());
+          setSelectedMaterials(new Set());
+          setTab("coursewares");
+          await streamOverview(
+            "/api/coursewares/stream",
+            { ...(override || {}), refresh },
+            {
+              kind: "coursewares",
+              label: "课件",
+              onItem: record => setCoursewares(prev => [...prev, record])
+            }
+          );
+          return;
+        }
+        const data = await api("/api/coursewares", { ...(override || {}), refresh });
         setCoursewares(data.coursewares || []);
         setSelected(new Set());
+        setSelectedMaterials(new Set());
         setTab("coursewares");
+        setStatus({ tone: data.stale ? "neutral" : "ok", text: refresh ? "课件已刷新" : cacheStatus(data, "课件") });
       }
 
-      async function downloadHomeworks() {
-        const data = await api("/api/download/homeworks", {});
-        append("✓ 作业下载完成：" + (data.output_root || "仅列表"));
-        setHomeworks(data.homeworks || homeworks);
+      async function downloadHomeworks(onlySelected) {
+        const ids = onlySelected ? Array.from(selectedHomeworks) : [];
+        const assignmentIds = onlySelected ? Array.from(selectedAssignments) : [];
+        const submissionIds = onlySelected ? Array.from(selectedSubmissions) : [];
+        if (onlySelected && ids.length === 0 && assignmentIds.length === 0 && submissionIds.length === 0) {
+          setStatus({ tone: "error", text: "请先勾选要下载的作业或附件" });
+          return;
+        }
+        await downloadZip("/api/download/homeworks", {
+          selected_homework_ids: ids,
+          selected_assignment_ids: assignmentIds,
+          selected_submission_ids: submissionIds
+        }, "homeworks.zip");
+        if (!onlySelected) {
+          setSelectedHomeworks(new Set());
+          setSelectedAssignments(new Set());
+          setSelectedSubmissions(new Set());
+        }
       }
 
       async function downloadCoursewares(onlySelected) {
         const ids = onlySelected ? Array.from(selected) : [];
-        if (onlySelected && ids.length === 0) {
-          setError("请先勾选要下载的课件");
+        const materialIds = onlySelected ? Array.from(selectedMaterials) : [];
+        if (onlySelected && ids.length === 0 && materialIds.length === 0) {
+          setStatus({ tone: "error", text: "请先勾选要下载的课件或附件" });
           return;
         }
-        const data = await api("/api/download/coursewares", { selected_ids: ids });
-        const count = (data.coursewares || []).reduce((n, r) => n + (r.materials || []).length, 0);
-        append("✓ 课件下载完成：" + (data.coursewares || []).length + " 个课件，" + count + " 个附件");
-        if (!onlySelected) setCoursewares(data.coursewares || coursewares);
+        await downloadZip("/api/download/coursewares", {
+          selected_ids: ids,
+          selected_material_ids: materialIds
+        }, "coursewares.zip");
+        if (!onlySelected) {
+          setSelectedMaterials(new Set());
+        }
+      }
+
+      async function submitHomework({ homeworkId, files, comment }) {
+        const target = String(homeworkId || "").trim();
+        if (!target) {
+          setStatus({ tone: "error", text: "请先填写作业 ID" });
+          return;
+        }
+        if (!files || files.length === 0) {
+          setStatus({ tone: "error", text: "请先选择要上传的文件" });
+          return;
+        }
+        const names = Array.from(files).map(file => file.name).join("\n");
+        const ok = window.confirm(
+          "即将向作业 " + target + " 提交以下文件：\n" +
+          names +
+          "\n\n此操作会真实改变服务器上的提交状态，不可自动撤销。确认提交？"
+        );
+        if (!ok) {
+          setStatus({ tone: "neutral", text: "已取消提交" });
+          return;
+        }
+
+        setBusy(true);
+        setStatus({ tone: "neutral", text: "正在上传并提交" });
+        try {
+          const payload = new FormData();
+          payload.append("username", form.username);
+          payload.append("password", form.password);
+          payload.append("homework_id", target);
+          payload.append("comment", comment || "");
+          payload.append("confirm", "1");
+          Array.from(files).forEach(file => payload.append("files", file, file.name));
+          const res = await fetch("/api/submit/homework", {
+            method: "POST",
+            body: payload
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "提交失败");
+          try {
+            await loadHomeworks(true);
+          } catch (_) {}
+          setStatus({ tone: "ok", text: "已提交 " + (data.submitted_count || 0) + " 个附件" });
+          setSubmitTarget(target);
+          setTab("submit");
+          return data;
+        } catch (err) {
+          setStatus({ tone: "error", text: err.message });
+          throw err;
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      function openSubmit(homeworkId) {
+        setSubmitTarget(String(homeworkId || ""));
+        setTab("submit");
       }
 
       function toggleCourseware(id) {
@@ -371,81 +1286,164 @@
         });
       }
 
+      function toggleMaterial(coursewareId, material, idx) {
+        const key = materialKey(coursewareId, material, idx);
+        setSelectedMaterials(prev => {
+          const next = new Set(prev);
+          if (next.has(key)) next.delete(key);
+          else next.add(key);
+          return next;
+        });
+      }
+
+      function selectMaterials(coursewareId, materials) {
+        setSelectedMaterials(prev => {
+          const next = new Set(prev);
+          materials.forEach((material, idx) => {
+            if (material.dest_dir !== null) {
+              next.add(materialKey(coursewareId, material, idx));
+            }
+          });
+          return next;
+        });
+      }
+
+      function clearMaterials(coursewareId, materials) {
+        setSelectedMaterials(prev => {
+          const next = new Set(prev);
+          materials.forEach((material, idx) => next.delete(materialKey(coursewareId, material, idx)));
+          return next;
+        });
+      }
+
       function selectAllCoursewares() {
         setSelected(new Set(coursewares.map(r => String(r.id))));
       }
 
+      function toggleHomework(id) {
+        setSelectedHomeworks(prev => {
+          const next = new Set(prev);
+          if (next.has(String(id))) next.delete(String(id));
+          else next.add(String(id));
+          return next;
+        });
+      }
+
+      function selectAllHomeworks() {
+        setSelectedHomeworks(new Set(homeworks.map(r => String(r.id))));
+      }
+
+      function toggleAssignment(homeworkId, assignment, idx) {
+        const key = assignmentKey(homeworkId, assignment, idx);
+        setSelectedAssignments(prev => {
+          const next = new Set(prev);
+          if (next.has(key)) next.delete(key);
+          else next.add(key);
+          return next;
+        });
+      }
+
+      function selectAssignments(homeworkId, assignments) {
+        setSelectedAssignments(prev => {
+          const next = new Set(prev);
+          assignments.forEach((assignment, idx) => {
+            if (assignment.dest_dir !== null) {
+              next.add(assignmentKey(homeworkId, assignment, idx));
+            }
+          });
+          return next;
+        });
+      }
+
+      function clearAssignments(homeworkId, assignments) {
+        setSelectedAssignments(prev => {
+          const next = new Set(prev);
+          assignments.forEach((assignment, idx) => next.delete(assignmentKey(homeworkId, assignment, idx)));
+          return next;
+        });
+      }
+
+      function toggleSubmission(homeworkId, submission, idx) {
+        const key = submissionKey(homeworkId, submission, idx);
+        setSelectedSubmissions(prev => {
+          const next = new Set(prev);
+          if (next.has(key)) next.delete(key);
+          else next.add(key);
+          return next;
+        });
+      }
+
+      function selectSubmissions(homeworkId, submissions) {
+        setSelectedSubmissions(prev => {
+          const next = new Set(prev);
+          submissions.forEach((submission, idx) => {
+            if (submission.dest_dir !== null) {
+              next.add(submissionKey(homeworkId, submission, idx));
+            }
+          });
+          return next;
+        });
+      }
+
+      function clearSubmissions(homeworkId, submissions) {
+        setSelectedSubmissions(prev => {
+          const next = new Set(prev);
+          submissions.forEach((submission, idx) => next.delete(submissionKey(homeworkId, submission, idx)));
+          return next;
+        });
+      }
+
       const selectedCount = selected.size;
+      const selectedMaterialCount = selectedMaterials.size;
+      const selectedHomeworkCount = selectedHomeworks.size;
+      const selectedAssignmentCount = selectedAssignments.size;
+      const selectedSubmissionCount = selectedSubmissions.size;
+      const statusClass = "busy-state " + (busy ? "active" : "") + (status.tone === "error" ? " error" : "");
+      const statusText = status.text;
 
       return h("div", { className: "app" },
         h("aside", { className: "sidebar" },
           h("div", { className: "brand" },
-            h("h1", null, "学在城院下载器"),
-            h("span", { className: "pill" }, "React")
-          ),
-          h("div", { className: "form-grid" },
-            h("label", null, "账号",
-              h("input", {
-                value: form.username,
-                onChange: e => update("username", e.target.value),
-                placeholder: "学号/账号"
-              })
-            ),
-            h("label", null, "密码",
-              h("input", {
-                type: "password",
-                value: form.password,
-                onChange: e => update("password", e.target.value),
-                placeholder: "留空则使用 .env"
-              })
-            ),
-            h("label", null, "课程",
-              h("select", {
-                value: form.course_id,
-                onChange: e => update("course_id", e.target.value)
-              },
-                h("option", { value: "" }, "手动输入或刷新课程"),
-                courses.map(c => h("option", { key: c.id, value: c.id }, c.id + "  " + c.name))
-              )
-            ),
-            h("label", null, "课程 ID",
-              h("input", {
-                value: form.course_id,
-                onChange: e => update("course_id", e.target.value),
-                placeholder: "例如 53472"
-              })
-            ),
-            h("label", null, "保存目录",
-              h("input", {
-                value: form.output_dir,
-                onChange: e => update("output_dir", e.target.value)
-              })
-            ),
-            h("div", { className: "inline" },
-              h("label", null, "并行数",
-                h("input", {
-                  type: "number",
-                  min: "1",
-                  max: "8",
-                  value: form.parallel,
-                  onChange: e => update("parallel", Number(e.target.value) || 1)
-                })
-              ),
-              h("label", { className: "checkline" },
-                h("input", {
-                  type: "checkbox",
-                  checked: form.download_submissions,
-                  onChange: e => update("download_submissions", e.target.checked)
-                }),
-                "提交"
-              )
+            h("div", { className: "brand-mark" }, "TC"),
+            h("div", null,
+              h("h1", null, "学在城院下载器"),
+              h("p", null, "课程资料、作业附件与提交文件")
             )
           ),
-          h("div", { className: "sidebar-actions" },
-            h("button", { onClick: loadCourses, disabled: busy }, "刷新课程"),
-            h("button", { onClick: loadHomeworks, disabled: busy || !form.course_id }, "刷新作业"),
-            h("button", { onClick: loadCoursewares, disabled: busy || !form.course_id }, "刷新课件"),
-            h("button", { onClick: () => setLogs([]), disabled: busy }, "清空日志")
+          h("div", { className: "side-section" },
+            h("div", { className: "section-title" },
+              h("span", null, "登录与课程"),
+              h(Badge, { tone: form.username ? "ok" : "neutral" }, form.username ? "已填账号" : "待填写")
+            ),
+            h("div", { className: "form-grid" },
+              h("label", null, "账号",
+                h("input", {
+                  value: form.username,
+                  onChange: e => update("username", e.target.value),
+                  placeholder: "学号/账号"
+                })
+              ),
+              h("label", null, "密码",
+                h(MaskedPasswordInput, {
+                  value: form.password,
+                  onChange: value => update("password", value),
+                  placeholder: "留空则使用 .env"
+                })
+              ),
+              h("label", null, "课程",
+                h("select", {
+                  value: form.course_id,
+                  onChange: e => update("course_id", e.target.value)
+                },
+                  h("option", { value: "" }, "刷新课程后选择课程"),
+                  form.course_id && !courses.some(c => String(c.id) === String(form.course_id))
+                    ? h("option", { value: form.course_id }, "当前课程 ID " + form.course_id)
+                    : null,
+                  courses.map(c => h("option", { key: c.id, value: c.id }, c.id + "  " + c.name))
+                )
+              ),
+              h("button", { onClick: () => loadCourses(true), disabled: busy, className: "subtle section-action" }, "刷新课程")
+            )
           )
         ),
         h("main", { className: "content" },
@@ -458,68 +1456,183 @@
               h("button", {
                 className: "tab " + (tab === "homeworks" ? "active" : ""),
                 onClick: () => setTab("homeworks")
-              }, "作业")
+              }, "作业"),
+              h("button", {
+                className: "tab " + (tab === "submit" ? "active" : ""),
+                onClick: () => setTab("submit")
+              }, "上传作业"),
+              h("span", { className: statusClass, title: statusText },
+                h("span", { className: "busy-dot" }),
+                h("span", { className: "busy-text" }, statusText)
+              )
             ),
             h("div", { className: "actions" },
               tab === "coursewares" && h(React.Fragment, null,
+                h("button", { onClick: () => loadCoursewares(true), disabled: busy || !form.course_id, className: "subtle" }, "刷新课件"),
                 h("button", { onClick: selectAllCoursewares, disabled: busy || !coursewares.length }, "全选"),
-                h("button", { onClick: () => setSelected(new Set()), disabled: busy || !selectedCount }, "清空"),
-                h("button", { onClick: () => downloadCoursewares(true), disabled: busy || !selectedCount, className: "primary" }, "下载选中"),
+                h("button", { onClick: () => { setSelected(new Set()); setSelectedMaterials(new Set()); }, disabled: busy || (!selectedCount && !selectedMaterialCount) }, "清空"),
+                h("button", { onClick: () => downloadCoursewares(true), disabled: busy || (!selectedCount && !selectedMaterialCount), className: "primary" }, "下载选中"),
                 h("button", { onClick: () => downloadCoursewares(false), disabled: busy || !coursewares.length }, "下载全部")
               ),
-              tab === "homeworks" && h("button", { onClick: downloadHomeworks, disabled: busy || !form.course_id, className: "primary" }, "下载作业")
+              tab === "homeworks" && h(React.Fragment, null,
+                h("button", { onClick: () => loadHomeworks(true), disabled: busy || !form.course_id, className: "subtle" }, "刷新作业"),
+                h("button", { onClick: selectAllHomeworks, disabled: busy || !homeworks.length }, "全选"),
+                h("button", { onClick: () => { setSelectedHomeworks(new Set()); setSelectedAssignments(new Set()); setSelectedSubmissions(new Set()); }, disabled: busy || (!selectedHomeworkCount && !selectedAssignmentCount && !selectedSubmissionCount) }, "清空"),
+                h("button", { onClick: () => downloadHomeworks(true), disabled: busy || (!selectedHomeworkCount && !selectedAssignmentCount && !selectedSubmissionCount), className: "primary" }, "下载选中"),
+                h("button", { onClick: () => downloadHomeworks(false), disabled: busy || !form.course_id }, "下载全部")
+              ),
+              tab === "submit" && h(React.Fragment, null,
+                h("button", { onClick: () => loadHomeworks(true), disabled: busy || !form.course_id, className: "subtle" }, "刷新作业"),
+                h("button", { onClick: () => setSubmitTarget(""), disabled: busy || !submitTarget }, "清空作业 ID")
+              )
             )
           ),
           tab === "coursewares"
-            ? h(CoursewarePanel, { rows: coursewares, selected, onToggle: toggleCourseware, selectedCount })
-            : h(HomeworkPanel, { rows: homeworks }),
-          h("div", { className: "logs" },
-            error ? h("div", { className: "error" }, "✗ " + error) : null,
-            logs.join("\n")
-          )
+            ? h(CoursewarePanel, {
+              rows: coursewares,
+              selected,
+              selectedMaterials,
+              loading: loadingList === "coursewares",
+              onToggle: toggleCourseware,
+              onToggleMaterial: toggleMaterial,
+              onSelectMaterials: selectMaterials,
+              onClearMaterials: clearMaterials,
+              selectedCount,
+              selectedMaterialCount
+            })
+            : tab === "homeworks"
+            ? h(HomeworkPanel, {
+              rows: homeworks,
+              selectedHomeworks,
+              selectedAssignments,
+              selectedSubmissions,
+              loading: loadingList === "homeworks",
+              onToggle: toggleHomework,
+              onToggleAssignment: toggleAssignment,
+              onSelectAssignments: selectAssignments,
+              onClearAssignments: clearAssignments,
+              onToggleSubmission: toggleSubmission,
+              onSelectSubmissions: selectSubmissions,
+              onClearSubmissions: clearSubmissions,
+              selectedHomeworkCount,
+              selectedAssignmentCount,
+              selectedSubmissionCount,
+              onSubmitHomework: openSubmit
+            })
+            : h(SubmitPanel, {
+              rows: homeworks,
+              targetId: submitTarget,
+              onTargetChange: setSubmitTarget,
+              onSubmit: submitHomework,
+              onRefresh: () => loadHomeworks(true),
+              busy
+            })
         )
       );
     }
 
-    function CoursewarePanel({ rows, selected, onToggle, selectedCount }) {
+    function CoursewarePanel({
+      rows,
+      selected,
+      selectedMaterials,
+      loading,
+      onToggle,
+      onToggleMaterial,
+      onSelectMaterials,
+      onClearMaterials,
+      selectedCount,
+      selectedMaterialCount
+    }) {
+      const [expanded, setExpanded] = React.useState(new Set());
+
+      React.useEffect(() => {
+        setExpanded(prev => {
+          const ids = new Set(rows.map(row => String(row.id)));
+          const next = new Set(Array.from(prev).filter(id => ids.has(id)));
+          return next.size === prev.size ? prev : next;
+        });
+      }, [rows]);
+
+      function toggleExpanded(id) {
+        setExpanded(prev => {
+          const key = String(id);
+          const next = new Set(prev);
+          if (next.has(key)) next.delete(key);
+          else next.add(key);
+          return next;
+        });
+      }
+
       return h("section", { className: "panel" },
         h("div", { className: "panel-head" },
-          h("h2", null, "课件"),
-          h("span", { className: "muted" }, rows.length + " 个课件，已选 " + selectedCount + " 个")
+          h("div", { className: "panel-title" },
+            h("h2", null, "课件列表"),
+            h(Badge, { tone: "blue" }, rows.length + " 个")
+          ),
+          h("span", { className: "panel-meta" }, "已选课件 " + selectedCount + " 个，已选附件 " + selectedMaterialCount + " 个，展开 " + expanded.size + " 个")
         ),
         h("div", { className: "table-wrap" },
           rows.length === 0
-            ? h("div", { className: "empty" }, "刷新课件后可勾选部分课件下载。")
+            ? loading
+              ? h(LoadingState, { title: "正在刷新课件" }, "正在读取详情与附件。")
+              : h(EmptyState, { title: "暂无课件数据" }, "刷新课件后可勾选部分课件下载。")
             : h("table", null,
               h("thead", null, h("tr", null,
-                h("th", { style: { width: "46px" } }, ""),
+                h("th", { style: { width: "48px" } }, ""),
                 h("th", null, "课件"),
-                h("th", { style: { width: "86px" } }, "附件数"),
-                h("th", { style: { width: "130px" } }, "状态")
+                h("th", { style: { width: "92px" } }, "附件数"),
+                h("th", { style: { width: "132px" } }, "状态")
               )),
               h("tbody", null, rows.map(row => {
                 const mats = row.materials || [];
                 const nPdf = mats.filter(m => m.pdf_fallback).length;
                 const nDisabled = mats.filter(m => m.dest_dir === null).length;
                 const isSelected = selected.has(String(row.id));
-                return h("tr", { key: row.id, className: isSelected ? "selected" : "" },
-                  h("td", null,
-                    h("input", {
-                      type: "checkbox",
-                      checked: isSelected,
-                      onChange: () => onToggle(row.id)
-                    })
+                const isExpanded = expanded.has(String(row.id));
+                return h(React.Fragment, { key: row.id },
+                  h("tr", { className: isSelected ? "selected" : "" },
+                    h("td", null,
+                      h("input", {
+                        className: "row-check",
+                        type: "checkbox",
+                        checked: isSelected,
+                        onChange: () => onToggle(row.id)
+                      })
+                    ),
+                    h("td", null,
+                      h("div", { className: "courseware-title" },
+                        h("button", {
+                          className: "expand-btn",
+                          type: "button",
+                          onClick: () => toggleExpanded(row.id),
+                          title: isExpanded ? "收起附件" : "展开附件",
+                          "aria-expanded": isExpanded
+                        }, isExpanded ? "−" : "+"),
+                        h("div", { className: "title-cell" },
+                          h("strong", null, row.title),
+                          row.description ? h("div", { className: "description" }, row.description.slice(0, 120)) : null
+                        )
+                      )
+                    ),
+                    h("td", null, h(Badge, { tone: "neutral" }, mats.length)),
+                    h("td", null,
+                      nDisabled ? h(Badge, { tone: "warn" }, "部分跳过") :
+                      nPdf ? h(Badge, { tone: "warn" }, "含 PDF 兜底") :
+                      h(Badge, { tone: "ok" }, "可下载")
+                    )
                   ),
-                  h("td", null,
-                    h("strong", null, row.title),
-                    row.description ? h("div", { className: "muted" }, row.description.slice(0, 120)) : null
-                  ),
-                  h("td", null, mats.length),
-                  h("td", null,
-                    nDisabled ? h("span", { className: "status-warn" }, "部分跳过") :
-                    nPdf ? h("span", { className: "status-warn" }, "含 PDF 兜底") :
-                    h("span", { className: "status-ok" }, "可下载")
-                  )
+                  isExpanded ? h("tr", { className: "details-row" },
+                    h("td", { colSpan: 4 },
+                      h(MaterialsPanel, {
+                        coursewareId: row.id,
+                        materials: mats,
+                        selectedMaterials,
+                        onToggleMaterial,
+                        onSelectMaterials,
+                        onClearMaterials
+                      })
+                    )
+                  ) : null
                 );
               }))
             )
@@ -527,35 +1640,393 @@
       );
     }
 
-    function HomeworkPanel({ rows }) {
+    function MaterialsPanel({
+      coursewareId,
+      materials,
+      selectedMaterials,
+      onToggleMaterial,
+      onSelectMaterials,
+      onClearMaterials
+    }) {
+      const available = materials.filter(m => m.dest_dir !== null).length;
+      const selectedCount = materials.filter((m, idx) => selectedMaterials.has(materialKey(coursewareId, m, idx))).length;
+      return h("div", { className: "materials-panel" },
+        h("div", { className: "materials-head" },
+          h("span", null, "附件明细"),
+          h("div", { className: "material-actions" },
+            h("span", null, "已选 " + selectedCount + " 个，" + available + " 个可下载 / " + materials.length + " 个总计"),
+            h("button", {
+              type: "button",
+              onClick: () => onSelectMaterials(coursewareId, materials),
+              disabled: available === 0 || selectedCount === available
+            }, "全选附件"),
+            h("button", {
+              type: "button",
+              onClick: () => onClearMaterials(coursewareId, materials),
+              disabled: selectedCount === 0
+            }, "清空附件")
+          )
+        ),
+        materials.length === 0
+          ? h("div", { className: "muted" }, "这个课件没有检测到附件。")
+          : h("div", { className: "materials-list" },
+            materials.map((m, idx) => {
+              const skipped = m.dest_dir === null;
+              const checked = selectedMaterials.has(materialKey(coursewareId, m, idx));
+              return h("div", { className: "material-item", key: String(m.id || m.url || idx) },
+                h("input", {
+                  className: "row-check",
+                  type: "checkbox",
+                  checked,
+                  disabled: skipped,
+                  onChange: () => onToggleMaterial(coursewareId, m, idx),
+                  title: skipped ? "该附件不可下载" : "选择这个附件"
+                }),
+                h("div", { className: "material-name", title: m.name || "未命名附件" }, m.name || "未命名附件"),
+                h("div", { className: "material-meta" }, formatSize(m.size)),
+                skipped ? h(Badge, { tone: "warn" }, "跳过") :
+                m.pdf_fallback ? h(Badge, { tone: "warn" }, "PDF 兜底") :
+                m.saved_path ? h(Badge, { tone: "ok" }, "已保存") :
+                h(Badge, { tone: "ok" }, "可下载")
+              );
+            })
+          )
+      );
+    }
+
+    function HomeworkPanel({
+      rows,
+      selectedHomeworks,
+      selectedAssignments,
+      selectedSubmissions,
+      loading,
+      onToggle,
+      onToggleAssignment,
+      onSelectAssignments,
+      onClearAssignments,
+      onToggleSubmission,
+      onSelectSubmissions,
+      onClearSubmissions,
+      selectedHomeworkCount,
+      selectedAssignmentCount,
+      selectedSubmissionCount,
+      onSubmitHomework
+    }) {
+      const [expanded, setExpanded] = React.useState(new Set());
+
+      React.useEffect(() => {
+        setExpanded(prev => {
+          const ids = new Set(rows.map(row => String(row.id)));
+          const next = new Set(Array.from(prev).filter(id => ids.has(id)));
+          return next.size === prev.size ? prev : next;
+        });
+      }, [rows]);
+
+      function toggleExpanded(id) {
+        setExpanded(prev => {
+          const key = String(id);
+          const next = new Set(prev);
+          if (next.has(key)) next.delete(key);
+          else next.add(key);
+          return next;
+        });
+      }
+
       return h("section", { className: "panel" },
         h("div", { className: "panel-head" },
-          h("h2", null, "作业"),
-          h("span", { className: "muted" }, rows.length + " 个作业")
+          h("div", { className: "panel-title" },
+            h("h2", null, "作业列表"),
+            h(Badge, { tone: "blue" }, rows.length + " 个")
+          ),
+          h("span", { className: "panel-meta" }, "已选作业 " + selectedHomeworkCount + " 个，题目附件 " + selectedAssignmentCount + " 个，我的提交 " + selectedSubmissionCount + " 个，展开 " + expanded.size + " 个")
         ),
         h("div", { className: "table-wrap" },
           rows.length === 0
-            ? h("div", { className: "empty" }, "刷新作业后可查看题目附件和提交状态。")
+            ? loading
+              ? h(LoadingState, { title: "正在刷新作业" }, "正在读取详情与附件。")
+              : h(EmptyState, { title: "暂无作业数据" }, "刷新作业后可查看题目附件和提交状态。")
             : h("table", null,
               h("thead", null, h("tr", null,
+                h("th", { style: { width: "48px" } }, ""),
                 h("th", null, "标题"),
-                h("th", { style: { width: "90px" } }, "已提交"),
-                h("th", { style: { width: "150px" } }, "截止"),
-                h("th", { style: { width: "90px" } }, "题目附件"),
-                h("th", { style: { width: "90px" } }, "我的提交")
+                h("th", { style: { width: "96px" } }, "已提交"),
+                h("th", { style: { width: "160px" } }, "截止"),
+                h("th", { style: { width: "96px" } }, "题目附件"),
+                h("th", { style: { width: "96px" } }, "我的提交"),
+                h("th", { style: { width: "92px" } }, "操作")
               )),
               h("tbody", null, rows.map(row => {
                 const status = row.status || {};
-                return h("tr", { key: row.id },
-                  h("td", null, h("strong", null, row.title)),
-                  h("td", null, status.submitted ? h("span", { className: "status-ok" }, "是") : h("span", { className: "status-warn" }, "否")),
-                  h("td", null, status.deadline || "-"),
-                  h("td", null, (row.assignment || []).length),
-                  h("td", null, (row.submission || []).length)
+                const isSelected = selectedHomeworks.has(String(row.id));
+                const isExpanded = expanded.has(String(row.id));
+                return h(React.Fragment, { key: row.id },
+                  h("tr", { className: isSelected ? "selected" : "" },
+                    h("td", null,
+                      h("input", {
+                        className: "row-check",
+                        type: "checkbox",
+                        checked: isSelected,
+                        onChange: () => onToggle(row.id)
+                      })
+                    ),
+                    h("td", null,
+                      h("div", { className: "courseware-title" },
+                        h("button", {
+                          className: "expand-btn",
+                          type: "button",
+                          onClick: () => toggleExpanded(row.id),
+                          title: isExpanded ? "收起附件" : "展开附件",
+                          "aria-expanded": isExpanded
+                        }, isExpanded ? "−" : "+"),
+                        h("div", { className: "title-cell" }, h("strong", null, row.title))
+                      )
+                    ),
+                    h("td", null, status.submitted ? h(Badge, { tone: "ok" }, "是") : h(Badge, { tone: "warn" }, "否")),
+                    h("td", null, status.deadline || "-"),
+                    h("td", null, h(Badge, { tone: "neutral" }, (row.assignment || []).length)),
+                    h("td", null, h(Badge, { tone: "neutral" }, (row.submission || []).length)),
+                    h("td", null,
+                      h("button", {
+                        type: "button",
+                        onClick: () => onSubmitHomework(row.id)
+                      }, "提交")
+                    )
+                  ),
+                  isExpanded ? h("tr", { className: "details-row" },
+                    h("td", { colSpan: 7 },
+                      h(HomeworkFilesPanel, {
+                        homeworkId: row.id,
+                        assignments: row.assignment || [],
+                        submissions: row.submission || [],
+                        selectedAssignments,
+                        selectedSubmissions,
+                        onToggleAssignment,
+                        onSelectAssignments,
+                        onClearAssignments,
+                        onToggleSubmission,
+                        onSelectSubmissions,
+                        onClearSubmissions
+                      })
+                    )
+                  ) : null
                 );
               }))
             )
         )
+      );
+    }
+
+    function HomeworkFilesPanel({
+      homeworkId,
+      assignments,
+      submissions,
+      selectedAssignments,
+      selectedSubmissions,
+      onToggleAssignment,
+      onSelectAssignments,
+      onClearAssignments,
+      onToggleSubmission,
+      onSelectSubmissions,
+      onClearSubmissions
+    }) {
+      return h("div", { className: "materials-panel" },
+        h(FileGroup, {
+          title: "题目附件",
+          empty: "这个作业没有检测到题目附件。",
+          files: assignments,
+          selected: selectedAssignments,
+          getKey: assignmentKey,
+          homeworkId,
+          onToggle: onToggleAssignment,
+          onSelect: onSelectAssignments,
+          onClear: onClearAssignments
+        }),
+        h(FileGroup, {
+          title: "我的提交",
+          empty: "这个作业没有检测到我的提交。",
+          files: submissions,
+          selected: selectedSubmissions,
+          getKey: submissionKey,
+          homeworkId,
+          onToggle: onToggleSubmission,
+          onSelect: onSelectSubmissions,
+          onClear: onClearSubmissions
+        })
+      );
+    }
+
+    function SubmitPanel({ rows, targetId, onTargetChange, onSubmit, onRefresh, busy }) {
+      const [files, setFiles] = React.useState([]);
+      const [comment, setComment] = React.useState("");
+      const fileInputRef = React.useRef(null);
+      const selectedRow = rows.find(row => String(row.id) === String(targetId));
+      const totalSize = files.reduce((sum, file) => sum + (Number(file.size) || 0), 0);
+
+      function chooseFiles(e) {
+        setFiles(Array.from(e.target.files || []));
+      }
+
+      function clearFiles() {
+        setFiles([]);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+
+      async function handleSubmit(e) {
+        e.preventDefault();
+        const data = await onSubmit({ homeworkId: targetId, files, comment });
+        if (data) {
+          clearFiles();
+          setComment("");
+        }
+      }
+
+      return h("section", { className: "panel" },
+        h("div", { className: "panel-head" },
+          h("div", { className: "panel-title" },
+            h("h2", null, "上传作业"),
+            h(Badge, { tone: selectedRow ? "ok" : "neutral" }, selectedRow ? "已选择" : "待选择")
+          ),
+          h("span", { className: "panel-meta" }, files.length + " 个文件，" + formatSize(totalSize))
+        ),
+        h("div", { className: "submit-layout" },
+          h("form", { className: "submit-form", onSubmit: handleSubmit },
+            h("label", null, "作业 ID",
+              h("input", {
+                value: targetId,
+                onChange: e => onTargetChange(e.target.value),
+                placeholder: "从右侧选择或手动输入作业 ID"
+              })
+            ),
+            selectedRow ? h("div", { className: "submit-help" },
+              "当前作业：" + selectedRow.title
+            ) : h("div", { className: "submit-help" },
+              "作业 ID 可以在作业列表中点击“提交”自动填入。"
+            ),
+            h("label", null, "说明",
+              h("textarea", {
+                value: comment,
+                onChange: e => setComment(e.target.value),
+                placeholder: "可选"
+              })
+            ),
+            h("div", { className: "file-picker" },
+              h("label", null, "文件",
+                h("input", {
+                  ref: fileInputRef,
+                  type: "file",
+                  multiple: true,
+                  onChange: chooseFiles
+                })
+              ),
+              files.length === 0
+                ? h("div", { className: "submit-help" }, "未选择文件。")
+                : h("div", { className: "file-list" },
+                  files.map((file, idx) => h("div", { className: "file-chip", key: file.name + ":" + idx },
+                    h("strong", { title: file.name }, file.name),
+                    h("span", { className: "material-meta" }, formatSize(file.size))
+                  ))
+                )
+            ),
+            h("div", { className: "material-actions" },
+              h("button", {
+                type: "submit",
+                className: "primary",
+                disabled: busy || !String(targetId || "").trim() || files.length === 0
+              }, "提交作业"),
+              h("button", {
+                type: "button",
+                onClick: clearFiles,
+                disabled: busy || files.length === 0
+              }, "清空文件")
+            ),
+            h("div", { className: "submit-help" }, "提交会真实写入 TronClass，并可能覆盖或追加到平台上的提交记录。")
+          ),
+          h("div", { className: "homework-picker" },
+            rows.length === 0
+              ? h(EmptyState, { title: "暂无作业数据" },
+                h("button", {
+                  type: "button",
+                  onClick: onRefresh,
+                  disabled: busy
+                }, "刷新作业")
+              )
+              : h("table", null,
+                h("thead", null, h("tr", null,
+                  h("th", null, "作业"),
+                  h("th", { style: { width: "96px" } }, "已提交"),
+                  h("th", { style: { width: "160px" } }, "截止"),
+                  h("th", { style: { width: "92px" } }, "选择")
+                )),
+                h("tbody", null, rows.map(row => {
+                  const status = row.status || {};
+                  const active = String(row.id) === String(targetId);
+                  return h("tr", { key: row.id, className: active ? "selected" : "" },
+                    h("td", null,
+                      h("div", { className: "title-cell" },
+                        h("strong", null, row.title),
+                        h("div", { className: "description" }, "ID " + row.id)
+                      )
+                    ),
+                    h("td", null, status.submitted ? h(Badge, { tone: "ok" }, "是") : h(Badge, { tone: "warn" }, "否")),
+                    h("td", null, status.deadline || "-"),
+                    h("td", null,
+                      h("button", {
+                        type: "button",
+                        onClick: () => onTargetChange(String(row.id)),
+                        disabled: active
+                      }, active ? "已选" : "选择")
+                    )
+                  );
+                }))
+              )
+          )
+        )
+      );
+    }
+
+    function FileGroup({ title, empty, files, selected, getKey, homeworkId, onToggle, onSelect, onClear }) {
+      const available = files.filter(file => file.dest_dir !== null).length;
+      const selectedCount = files.filter((file, idx) => selected.has(getKey(homeworkId, file, idx))).length;
+      return h("div", { className: "materials-group" },
+        h("div", { className: "materials-head" },
+          h("span", null, title),
+          h("div", { className: "material-actions" },
+            h("span", null, "已选 " + selectedCount + " 个，" + available + " 个可下载 / " + files.length + " 个总计"),
+            h("button", {
+              type: "button",
+              onClick: () => onSelect(homeworkId, files),
+              disabled: available === 0 || selectedCount === available
+            }, "全选附件"),
+            h("button", {
+              type: "button",
+              onClick: () => onClear(homeworkId, files),
+              disabled: selectedCount === 0
+            }, "清空附件")
+          )
+        ),
+        files.length === 0
+          ? h("div", { className: "muted" }, empty)
+          : h("div", { className: "materials-list" },
+            files.map((file, idx) => {
+              const skipped = file.dest_dir === null;
+              const checked = selected.has(getKey(homeworkId, file, idx));
+              return h("div", { className: "material-item", key: String(file.id || file.url || idx) },
+                h("input", {
+                  className: "row-check",
+                  type: "checkbox",
+                  checked,
+                  disabled: skipped,
+                  onChange: () => onToggle(homeworkId, file, idx),
+                  title: skipped ? "该附件不可下载" : "选择这个附件"
+                }),
+                h("div", { className: "material-name", title: file.name || "未命名附件" }, file.name || "未命名附件"),
+                h("div", { className: "material-meta" }, formatSize(file.size)),
+                skipped ? h(Badge, { tone: "warn" }, "跳过") :
+                file.saved_path ? h(Badge, { tone: "ok" }, "已保存") :
+                h(Badge, { tone: "ok" }, "可下载")
+              );
+            })
+          )
       );
     }
 

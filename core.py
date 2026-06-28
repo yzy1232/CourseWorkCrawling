@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 import requests
 
@@ -207,6 +207,9 @@ def run_download(
     download_submissions: bool = True,
     list_only: bool = False,
     parallel: int = 4,
+    selected_homework_ids: set[str] | list[str] | tuple[str, ...] | None = None,
+    selected_assignment_ids: set[str] | list[str] | tuple[str, ...] | None = None,
+    selected_submission_ids: set[str] | list[str] | tuple[str, ...] | None = None,
     session: requests.Session | None = None,
     log: Logger = _noop,
     progress: Progress = _noop,
@@ -219,6 +222,9 @@ def run_download(
     prep = prepare_download(
         username, password, course_id, output_dir,
         download_submissions=download_submissions,
+        selected_homework_ids=selected_homework_ids,
+        selected_assignment_ids=selected_assignment_ids,
+        selected_submission_ids=selected_submission_ids,
         session=session, log=log,
     )
     records = prep["records"]
@@ -302,6 +308,33 @@ def _flatten_for_manifest(records: list[dict]) -> list[dict]:
     return out
 
 
+def iter_homework_overview(
+    username: str,
+    password: str,
+    course_id: str,
+    *,
+    download_submissions: bool = True,
+    session: requests.Session | None = None,
+    log: Logger = _noop,
+) -> Iterator[tuple[int, int, dict]]:
+    """逐条抓取课程作业概览，yield (当前序号, 总数, 记录)。"""
+    if session is None:
+        session = authenticate(username, password, log=log)
+    user_id = getattr(session, "user_id", None) or get_current_user_id(session)
+
+    log(f"获取课程 {course_id} 的作业列表 ...")
+    homeworks = list_homeworks(session, course_id)
+    total = len(homeworks)
+    log(f"共 {total} 个作业")
+
+    output_root = Path("downloads") / f"course_{course_id}"
+    for idx, hw in enumerate(homeworks, 1):
+        yield idx, total, _collect_homework_record(
+            session, hw, idx, user_id, output_root,
+            download_submissions, log,
+        )
+
+
 def get_homework_overview(
     username: str,
     password: str,
@@ -315,24 +348,14 @@ def get_homework_overview(
 
     返回的记录可 JSON 序列化，直接用于「作业」页签展示与本地缓存。
     """
-    if session is None:
-        session = authenticate(username, password, log=log)
-    user_id = getattr(session, "user_id", None) or get_current_user_id(session)
-
-    log(f"获取课程 {course_id} 的作业列表 ...")
-    homeworks = list_homeworks(session, course_id)
-    log(f"共 {len(homeworks)} 个作业")
-
-    output_root = Path("downloads") / f"course_{course_id}"
-    records: list[dict] = []
-    for idx, hw in enumerate(homeworks, 1):
-        records.append(
-            _collect_homework_record(
-                session, hw, idx, user_id, output_root,
-                download_submissions, log,
-            )
+    return [
+        record
+        for _idx, _total, record in iter_homework_overview(
+            username, password, course_id,
+            download_submissions=download_submissions,
+            session=session, log=log,
         )
-    return records
+    ]
 
 
 def _collect_courseware_record(
@@ -416,6 +439,30 @@ def _as_pdf_name(name: str) -> str:
     return f"{stem}.pdf"
 
 
+def iter_courseware_overview(
+    username: str,
+    password: str,
+    course_id: str,
+    *,
+    session: requests.Session | None = None,
+    log: Logger = _noop,
+) -> Iterator[tuple[int, int, dict]]:
+    """逐条抓取课程课件概览，yield (当前序号, 总数, 记录)。"""
+    if session is None:
+        session = authenticate(username, password, log=log)
+
+    log(f"获取课程 {course_id} 的课件列表 ...")
+    coursewares = list_coursewares(session, course_id)
+    total = len(coursewares)
+    log(f"共 {total} 个课件")
+
+    output_root = Path("downloads") / f"course_{course_id}" / "课件"
+    for idx, cw in enumerate(coursewares, 1):
+        yield idx, total, _collect_courseware_record(
+            session, cw, idx, output_root, log
+        )
+
+
 def get_courseware_overview(
     username: str,
     password: str,
@@ -428,20 +475,12 @@ def get_courseware_overview(
 
     返回的记录可 JSON 序列化，直接用于「课件」展示与本地缓存。
     """
-    if session is None:
-        session = authenticate(username, password, log=log)
-
-    log(f"获取课程 {course_id} 的课件列表 ...")
-    coursewares = list_coursewares(session, course_id)
-    log(f"共 {len(coursewares)} 个课件")
-
-    output_root = Path("downloads") / f"course_{course_id}" / "课件"
-    records: list[dict] = []
-    for idx, cw in enumerate(coursewares, 1):
-        records.append(
-            _collect_courseware_record(session, cw, idx, output_root, log)
+    return [
+        record
+        for _idx, _total, record in iter_courseware_overview(
+            username, password, course_id, session=session, log=log
         )
-    return records
+    ]
 
 
 def prepare_download(
@@ -452,6 +491,9 @@ def prepare_download(
     *,
     download_submissions: bool = True,
     records: list[dict] | None = None,
+    selected_homework_ids: set[str] | list[str] | tuple[str, ...] | None = None,
+    selected_assignment_ids: set[str] | list[str] | tuple[str, ...] | None = None,
+    selected_submission_ids: set[str] | list[str] | tuple[str, ...] | None = None,
     session: requests.Session | None = None,
     log: Logger = _noop,
 ) -> dict:
@@ -471,6 +513,9 @@ def prepare_download(
             download_submissions=download_submissions,
             session=session, log=log,
         )
+    records = _filter_homework_selection(
+        records, selected_homework_ids, selected_assignment_ids, selected_submission_ids
+    )
 
     tasks: list[DownloadTask] = []
     tid = 0
@@ -497,6 +542,48 @@ def prepare_download(
         "output_root": output_root,
         "session": session,
     }
+
+
+def _filter_homework_selection(
+    records: list[dict],
+    selected_homework_ids: set[str] | list[str] | tuple[str, ...] | None,
+    selected_assignment_ids: set[str] | list[str] | tuple[str, ...] | None,
+    selected_submission_ids: set[str] | list[str] | tuple[str, ...] | None,
+) -> list[dict]:
+    """按作业、题目附件或提交附件选择过滤；三者取并集。"""
+    if not selected_homework_ids and not selected_assignment_ids and not selected_submission_ids:
+        return records
+    selected_homeworks = {str(i) for i in selected_homework_ids or ()}
+    selected_assignments = {str(i) for i in selected_assignment_ids or ()}
+    selected_submissions = {str(i) for i in selected_submission_ids or ()}
+    filtered: list[dict] = []
+    for record in records:
+        if str(record.get("id")) in selected_homeworks:
+            filtered.append(record)
+            continue
+        assignments = []
+        for idx, assignment in enumerate(record.get("assignment") or []):
+            keys = {
+                str(assignment.get("id")),
+                str(assignment.get("url")),
+                str(assignment.get("name")),
+                f"{record.get('id')}:{assignment.get('id') or assignment.get('url') or assignment.get('name') or idx}",
+            }
+            if keys & selected_assignments:
+                assignments.append(assignment)
+        submissions = []
+        for idx, submission in enumerate(record.get("submission") or []):
+            keys = {
+                str(submission.get("id")),
+                str(submission.get("url")),
+                str(submission.get("name")),
+                f"{record.get('id')}:{submission.get('id') or submission.get('url') or submission.get('name') or idx}",
+            }
+            if keys & selected_submissions:
+                submissions.append(submission)
+        if assignments or submissions:
+            filtered.append({**record, "assignment": assignments, "submission": submissions})
+    return filtered
 
 
 def courses_with_cache(
@@ -576,6 +663,7 @@ def prepare_courseware_download(
     *,
     records: list[dict] | None = None,
     selected_ids: set[str] | list[str] | tuple[str, ...] | None = None,
+    selected_material_ids: set[str] | list[str] | tuple[str, ...] | None = None,
     session: requests.Session | None = None,
     log: Logger = _noop,
 ) -> dict:
@@ -593,7 +681,7 @@ def prepare_courseware_download(
             username, password, course_id, session=session, log=log
         )
     _apply_courseware_dest_dirs(records, output_root)
-    records = _filter_courseware_records(records, selected_ids)
+    records = _filter_courseware_selection(records, selected_ids, selected_material_ids)
 
     tasks: list[DownloadTask] = []
     tid = 0
@@ -618,15 +706,34 @@ def prepare_courseware_download(
     }
 
 
-def _filter_courseware_records(
+def _filter_courseware_selection(
     records: list[dict],
     selected_ids: set[str] | list[str] | tuple[str, ...] | None,
+    selected_material_ids: set[str] | list[str] | tuple[str, ...] | None,
 ) -> list[dict]:
-    """按课件 id 过滤记录；未传 selected_ids 时保持全部课件。"""
-    if not selected_ids:
+    """按课件或附件选择过滤；课件选择与附件选择取并集。"""
+    if not selected_ids and not selected_material_ids:
         return records
-    selected = {str(i) for i in selected_ids}
-    return [r for r in records if str(r.get("id")) in selected]
+    selected_coursewares = {str(i) for i in selected_ids or ()}
+    selected_materials = {str(i) for i in selected_material_ids or ()}
+    filtered: list[dict] = []
+    for record in records:
+        if str(record.get("id")) in selected_coursewares:
+            filtered.append(record)
+            continue
+        materials = []
+        for idx, material in enumerate(record.get("materials") or []):
+            keys = {
+                str(material.get("id")),
+                str(material.get("url")),
+                str(material.get("name")),
+                f"{record.get('id')}:{material.get('id') or material.get('url') or material.get('name') or idx}",
+            }
+            if keys & selected_materials:
+                materials.append(material)
+        if materials:
+            filtered.append({**record, "materials": materials})
+    return filtered
 
 
 def _apply_courseware_dest_dirs(records: list[dict], output_root: Path) -> None:
@@ -646,6 +753,7 @@ def download_coursewares(
     list_only: bool = False,
     parallel: int = 4,
     selected_ids: set[str] | list[str] | tuple[str, ...] | None = None,
+    selected_material_ids: set[str] | list[str] | tuple[str, ...] | None = None,
     session: requests.Session | None = None,
     log: Logger = _noop,
     progress: Progress = _noop,
@@ -653,7 +761,10 @@ def download_coursewares(
     """抓取并下载课程的全部课件附件，返回结果汇总 dict。"""
     prep = prepare_courseware_download(
         username, password, course_id, output_dir,
-        selected_ids=selected_ids, session=session, log=log,
+        selected_ids=selected_ids,
+        selected_material_ids=selected_material_ids,
+        session=session,
+        log=log,
     )
     records = prep["records"]
     output_root = prep["output_root"]
