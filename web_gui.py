@@ -13,7 +13,9 @@ import mimetypes
 import os
 import sys
 import tempfile
+import time
 import traceback
+import uuid
 import webbrowser
 import zipfile
 from email.parser import BytesParser
@@ -40,6 +42,7 @@ from downloader import sanitize
 
 ROOT = Path(__file__).resolve().parent
 WEB_ROOT = ROOT / "web"
+ZIP_CACHE_DIR = ROOT / ".cache" / "zips"
 HOST = "127.0.0.1"
 PORT = 8765
 
@@ -67,6 +70,9 @@ class ApiHandler(SimpleHTTPRequestHandler):
                 }
             )
             return
+        if self.path.startswith("/api/download/file/"):
+            self._serve_download_file()
+            return
         super().do_GET()
 
     def do_POST(self) -> None:  # noqa: N802
@@ -88,6 +94,14 @@ class ApiHandler(SimpleHTTPRequestHandler):
 
             if self.path == "/api/coursewares/stream":
                 self._stream_overview(payload, kind="coursewares")
+                return
+
+            if self.path == "/api/download/homeworks/stream":
+                self._stream_download(payload, kind="homeworks")
+                return
+
+            if self.path == "/api/download/coursewares/stream":
+                self._stream_download(payload, kind="coursewares")
                 return
 
             if self.path == "/api/courses":
@@ -160,6 +174,7 @@ class ApiHandler(SimpleHTTPRequestHandler):
                     course,
                     "downloads",
                     download_submissions=True,
+                    records=_records_from_payload(payload),
                     selected_homework_ids=payload.get("selected_homework_ids") or None,
                     selected_assignment_ids=payload.get("selected_assignment_ids") or None,
                     selected_submission_ids=payload.get("selected_submission_ids") or None,
@@ -180,6 +195,7 @@ class ApiHandler(SimpleHTTPRequestHandler):
                     password,
                     course,
                     "downloads",
+                    records=_records_from_payload(payload),
                     selected_ids=payload.get("selected_ids") or None,
                     selected_material_ids=payload.get("selected_material_ids") or None,
                     log=log,
@@ -420,6 +436,185 @@ class ApiHandler(SimpleHTTPRequestHandler):
             traceback.print_exc()
             emit({"type": "error", "kind": kind, "error": str(exc)})
 
+    def _stream_download(self, payload: dict[str, Any], *, kind: str) -> None:
+        username, password, course = self._creds(payload)
+        label = "作业" if kind == "homeworks" else "课件"
+        filename = (
+            f"course_{course}_homeworks.zip"
+            if kind == "homeworks"
+            else f"course_{course}_coursewares.zip"
+        )
+
+        self._ndjson_headers()
+
+        def emit(event: dict[str, Any]) -> None:
+            self._ndjson(event)
+
+        def log(msg: str) -> None:
+            emit({"type": "log", "kind": kind, "message": msg})
+
+        try:
+            emit({"type": "log", "kind": kind, "message": f"正在整理{label}下载列表"})
+            prep = (
+                prepare_download(
+                    username,
+                    password,
+                    course,
+                    "downloads",
+                    download_submissions=True,
+                    records=_records_from_payload(payload),
+                    selected_homework_ids=payload.get("selected_homework_ids") or None,
+                    selected_assignment_ids=payload.get("selected_assignment_ids") or None,
+                    selected_submission_ids=payload.get("selected_submission_ids") or None,
+                    log=log,
+                )
+                if kind == "homeworks"
+                else prepare_courseware_download(
+                    username,
+                    password,
+                    course,
+                    "downloads",
+                    records=_records_from_payload(payload),
+                    selected_ids=payload.get("selected_ids") or None,
+                    selected_material_ids=payload.get("selected_material_ids") or None,
+                    log=log,
+                )
+            )
+            tasks = prep["tasks"]
+            if not tasks:
+                emit({"type": "error", "kind": kind, "error": "没有可下载的附件"})
+                return
+
+            _cleanup_zip_cache()
+            token = uuid.uuid4().hex
+            archive_path = ZIP_CACHE_DIR / f"{token}.zip"
+            archive_path.parent.mkdir(parents=True, exist_ok=True)
+
+            files = [_download_task_payload(task) for task in tasks]
+            emit(
+                {
+                    "type": "start",
+                    "kind": kind,
+                    "total": len(tasks),
+                    "filename": filename,
+                    "files": files,
+                }
+            )
+
+            failures: list[str] = []
+            written = 0
+            used: set[str] = set()
+            with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                for idx, task in enumerate(tasks, 1):
+                    task_payload = _download_task_payload(task, index=idx, total=len(tasks))
+                    emit({"type": "file_start", "kind": kind, **task_payload})
+                    arcname = _download_arcname(used, task)
+                    try:
+                        with prep["session"].get(
+                            task.url,
+                            stream=True,
+                            timeout=60,
+                            headers={"X-Requested-With": "XMLHttpRequest"},
+                        ) as resp:
+                            if resp.status_code != 200:
+                                error = f"HTTP {resp.status_code}"
+                                failures.append(f"{task.name}: {error}")
+                                emit({"type": "file_error", "kind": kind, "error": error, **task_payload})
+                                continue
+                            with zf.open(arcname, "w") as fh:
+                                for chunk in resp.iter_content(chunk_size=64 * 1024):
+                                    if chunk:
+                                        fh.write(chunk)
+                            written += 1
+                            emit({"type": "file_done", "kind": kind, **task_payload})
+                    except Exception as exc:  # noqa: BLE001 单个附件失败不影响其它文件
+                        error = str(exc)
+                        failures.append(f"{task.name}: {error}")
+                        emit({"type": "file_error", "kind": kind, "error": error, **task_payload})
+
+                manifest = {
+                    "file_count": written,
+                    "requested_count": len(tasks),
+                    "failures": failures,
+                }
+                zf.writestr(
+                    "manifest.json",
+                    json.dumps(manifest, ensure_ascii=False, indent=2),
+                )
+
+            if written == 0:
+                try:
+                    archive_path.unlink()
+                except OSError:
+                    pass
+                emit(
+                    {
+                        "type": "error",
+                        "kind": kind,
+                        "error": "附件下载失败，未生成可用 ZIP",
+                        "failures": failures,
+                    }
+                )
+                return
+
+            meta = {
+                "filename": sanitize(filename, "download.zip"),
+                "created_at": time.time(),
+            }
+            archive_path.with_suffix(".json").write_text(
+                json.dumps(meta, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            emit(
+                {
+                    "type": "done",
+                    "kind": kind,
+                    "count": written,
+                    "requested_count": len(tasks),
+                    "failures": failures,
+                    "filename": meta["filename"],
+                    "url": f"/api/download/file/{token}",
+                }
+            )
+        except (BrokenPipeError, ConnectionResetError):
+            return
+        except Exception as exc:  # noqa: BLE001 流式接口已发响应头，只能用事件返回错误
+            traceback.print_exc()
+            emit({"type": "error", "kind": kind, "error": str(exc)})
+
+    def _serve_download_file(self) -> None:
+        token = self.path.split("?", 1)[0].rsplit("/", 1)[-1]
+        if len(token) != 32 or not all(ch in "0123456789abcdef" for ch in token):
+            self.send_error(404, "Download not found")
+            return
+
+        archive_path = ZIP_CACHE_DIR / f"{token}.zip"
+        if not archive_path.exists():
+            self.send_error(404, "Download not found")
+            return
+
+        filename = "download.zip"
+        meta_path = archive_path.with_suffix(".json")
+        if meta_path.exists():
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                filename = sanitize(str(meta.get("filename") or filename), filename)
+            except Exception:  # noqa: BLE001 元数据损坏时仍允许下载 ZIP
+                filename = "download.zip"
+
+        stat = archive_path.stat()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/zip")
+        self.send_header("Content-Length", str(stat.st_size))
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.end_headers()
+        with archive_path.open("rb") as fh:
+            while True:
+                chunk = fh.read(64 * 1024)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+
     def _zip_response(self, session: Any, tasks: list[Any], *, filename: str, logs: list[str]) -> None:
         if not tasks:
             self._json({"error": "没有可下载的附件", "logs": logs}, status=400)
@@ -506,6 +701,61 @@ def _dedupe_zip_name(used: set[str], name: str) -> str:
             used.add(candidate)
             return candidate
         i += 1
+
+
+def _download_arcname(used: set[str], task: Any) -> str:
+    return _dedupe_zip_name(
+        used,
+        f"{sanitize(task.hw_title)}/{sanitize(task.kind)}/{sanitize(task.name)}",
+    )
+
+
+def _download_kind_label(kind: str) -> str:
+    return {
+        "assignment": "题目附件",
+        "submission": "提交附件",
+        "material": "课件附件",
+    }.get(kind, kind)
+
+
+def _download_task_payload(task: Any, *, index: int | None = None, total: int | None = None) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "id": task.id,
+        "name": task.name,
+        "title": task.hw_title,
+        "kind_name": task.kind,
+        "kind_label": _download_kind_label(str(task.kind)),
+        "progress_key": task.progress_key or "",
+        "size": task.total_bytes,
+    }
+    if index is not None:
+        payload["index"] = index
+    if total is not None:
+        payload["total"] = total
+    return payload
+
+
+def _records_from_payload(payload: dict[str, Any]) -> list[dict] | None:
+    if "records" not in payload:
+        return None
+    records = payload.get("records")
+    if records is None:
+        return None
+    if not isinstance(records, list):
+        raise ValueError("records 格式错误")
+    return records
+
+
+def _cleanup_zip_cache(max_age_seconds: int = 24 * 60 * 60) -> None:
+    if not ZIP_CACHE_DIR.exists():
+        return
+    cutoff = time.time() - max_age_seconds
+    for path in ZIP_CACHE_DIR.glob("*"):
+        try:
+            if path.stat().st_mtime < cutoff:
+                path.unlink()
+        except OSError:
+            pass
 
 
 def _dedupe_name(used: set[str], name: str) -> str:

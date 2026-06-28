@@ -376,6 +376,73 @@
       to { transform: rotate(360deg); }
     }
 
+    .download-status-icon {
+      position: relative;
+      width: 18px;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      justify-self: center;
+    }
+
+    .download-status-icon.idle {
+      opacity: 0;
+    }
+
+    .download-status-icon.pending {
+      border: 2px solid var(--line-strong);
+      background: #fff;
+    }
+
+    .download-status-icon.running {
+      border: 2px solid var(--line);
+      border-top-color: var(--brand);
+      background: #fff;
+      animation: spin .75s linear infinite;
+    }
+
+    .download-status-icon.done {
+      background: var(--ok);
+      box-shadow: 0 0 0 3px rgba(22, 121, 76, .12);
+    }
+
+    .download-status-icon.done::after {
+      content: "";
+      position: absolute;
+      left: 5px;
+      top: 4px;
+      width: 7px;
+      height: 4px;
+      border-left: 2px solid #fff;
+      border-bottom: 2px solid #fff;
+      transform: rotate(-45deg);
+    }
+
+    .download-status-icon.error {
+      background: var(--danger);
+      box-shadow: 0 0 0 3px rgba(180, 35, 24, .12);
+    }
+
+    .download-status-icon.error::before,
+    .download-status-icon.error::after {
+      content: "";
+      position: absolute;
+      left: 5px;
+      top: 8px;
+      width: 8px;
+      height: 2px;
+      border-radius: 2px;
+      background: #fff;
+    }
+
+    .download-status-icon.error::before {
+      transform: rotate(45deg);
+    }
+
+    .download-status-icon.error::after {
+      transform: rotate(-45deg);
+    }
+
     .panel {
       min-height: 0;
       background: var(--panel);
@@ -457,6 +524,10 @@
       min-width: 240px;
     }
 
+    .courseware-title > .download-status-icon {
+      margin-top: 6px;
+    }
+
     .expand-btn {
       width: 30px;
       min-width: 30px;
@@ -506,7 +577,7 @@
 
     .material-item {
       display: grid;
-      grid-template-columns: 18px minmax(0, 1fr) auto auto;
+      grid-template-columns: 20px 18px minmax(0, 1fr) auto auto;
       align-items: center;
       gap: 10px;
       min-height: 38px;
@@ -514,6 +585,22 @@
       border-radius: 7px;
       background: #fff;
       padding: 8px 10px;
+    }
+
+    .material-item.pending,
+    .material-item.running {
+      border-color: #b9dbe2;
+      background: #f4fbfc;
+    }
+
+    .material-item.done {
+      border-color: #bfebd1;
+      background: #f5fbf7;
+    }
+
+    .material-item.error {
+      border-color: #f1b8b2;
+      background: var(--danger-soft);
     }
 
     .material-name {
@@ -728,13 +815,13 @@
       }
 
       .material-item {
-        grid-template-columns: 18px minmax(0, 1fr);
+        grid-template-columns: 20px 18px minmax(0, 1fr);
         align-items: start;
       }
 
       .material-actions,
       .material-meta {
-        grid-column: 2;
+        grid-column: 3;
       }
     }
   </style>
@@ -765,6 +852,18 @@
           h("div", null, children)
         )
       );
+    }
+
+    function DownloadStatusIcon({ status }) {
+      const normalized = status || "idle";
+      const title = {
+        idle: "",
+        pending: "等待下载",
+        running: "正在下载",
+        done: "下载完成",
+        error: "下载失败"
+      }[normalized] || "";
+      return h("span", { className: "download-status-icon " + normalized, title, "aria-label": title });
     }
 
     function formatSize(size) {
@@ -863,6 +962,23 @@
       return String(homeworkId) + ":" + String(submission.id || submission.url || submission.name || idx);
     }
 
+    function withProgressKey(item, key) {
+      return { ...item, progress_key: key };
+    }
+
+    function downloadStatusForKey(statuses, key) {
+      return (statuses[key] && statuses[key].status) || "idle";
+    }
+
+    function aggregateDownloadStatus(statuses, keys) {
+      const values = keys.map(key => statuses[key] && statuses[key].status).filter(Boolean);
+      if (values.includes("running")) return "running";
+      if (values.includes("pending")) return "pending";
+      if (values.includes("error")) return "error";
+      if (values.includes("done")) return "done";
+      return "idle";
+    }
+
     function App() {
       const [form, setForm] = React.useState({
         username: "",
@@ -882,6 +998,7 @@
       const [busy, setBusy] = React.useState(false);
       const [loadingList, setLoadingList] = React.useState(null);
       const [status, setStatus] = React.useState({ tone: "neutral", text: "就绪" });
+      const [downloadStatuses, setDownloadStatuses] = React.useState({});
 
       React.useEffect(() => {
         fetch("/api/config")
@@ -1086,6 +1203,15 @@
         return m ? m[1] : fallback;
       }
 
+      function triggerBrowserDownload(url, filename) {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename || "download.zip";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+
       async function downloadZip(path, extra, fallbackName) {
         setBusy(true);
         setStatus({ tone: "neutral", text: "正在打包下载" });
@@ -1113,6 +1239,126 @@
           a.remove();
           setTimeout(() => URL.revokeObjectURL(url), 60 * 1000);
           setStatus({ tone: "ok", text: "已交给浏览器下载" });
+        } catch (err) {
+          setStatus({ tone: "error", text: err.message });
+          throw err;
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      async function downloadZipStream(path, extra, fallbackName, label) {
+        let doneEvent = null;
+        setBusy(true);
+        setDownloadStatuses({});
+        setStatus({ tone: "neutral", text: "正在整理下载列表" });
+        try {
+          const res = await fetch(path, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...form, ...extra })
+          });
+          if (!res.ok) {
+            let message = "下载失败";
+            const text = await res.text();
+            try {
+              const data = JSON.parse(text);
+              message = data.error || message;
+            } catch (_) {
+              message = text || message;
+            }
+            throw new Error(message);
+          }
+          if (!res.body) throw new Error("当前浏览器不支持流式读取");
+
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+
+          function setFileStatus(event, nextStatus, error) {
+            if (!event.progress_key) return;
+            setDownloadStatuses(prev => ({
+              ...prev,
+              [event.progress_key]: {
+                status: nextStatus,
+                error: error || ""
+              }
+            }));
+          }
+
+          function handleEvent(event) {
+            if (!event || !event.type) return;
+            if (event.type === "log") {
+              const message = event.message || "正在整理下载列表";
+              setStatus({ tone: "neutral", text: message });
+              return;
+            }
+            if (event.type === "start") {
+              const files = event.files || [];
+              const pending = {};
+              files.forEach(file => {
+                if (file.progress_key) pending[file.progress_key] = { status: "pending", error: "" };
+              });
+              setDownloadStatuses(pending);
+              setStatus({ tone: "neutral", text: label + "开始下载，共 " + files.length + " 个文件" });
+              return;
+            }
+            if (event.type === "file_start") {
+              setFileStatus(event, "running", "");
+              setStatus({
+                tone: "neutral",
+                text: "正在下载 " + (event.index || "") + (event.total ? "/" + event.total : "") + "：" + (event.name || "")
+              });
+              return;
+            }
+            if (event.type === "file_done") {
+              setFileStatus(event, "done", "");
+              setStatus({
+                tone: "neutral",
+                text: "已下载 " + (event.index || "") + (event.total ? "/" + event.total : "")
+              });
+              return;
+            }
+            if (event.type === "file_error") {
+              setFileStatus(event, "error", event.error || "下载失败");
+              setStatus({ tone: "neutral", text: "部分文件下载失败，继续处理剩余文件" });
+              return;
+            }
+            if (event.type === "done") {
+              doneEvent = event;
+              return;
+            }
+            if (event.type === "error") {
+              throw new Error(event.error || "下载失败");
+            }
+          }
+
+          function handleLine(line) {
+            const trimmed = line.trim();
+            if (!trimmed) return;
+            handleEvent(JSON.parse(trimmed));
+          }
+
+          while (true) {
+            const result = await reader.read();
+            if (result.done) break;
+            buffer += decoder.decode(result.value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+            lines.forEach(handleLine);
+          }
+          buffer += decoder.decode();
+          handleLine(buffer);
+
+          if (!doneEvent) throw new Error("下载中断");
+          if (doneEvent.url) {
+            triggerBrowserDownload(doneEvent.url, doneEvent.filename || fallbackName);
+          }
+          const failures = (doneEvent.failures || []).length;
+          setStatus({
+            tone: failures ? "neutral" : "ok",
+            text: failures ? "已生成 ZIP，" + failures + " 个文件失败" : "已交给浏览器下载"
+          });
         } catch (err) {
           setStatus({ tone: "error", text: err.message });
           throw err;
@@ -1184,6 +1430,57 @@
         setStatus({ tone: data.stale ? "neutral" : "ok", text: refresh ? "课件已刷新" : cacheStatus(data, "课件") });
       }
 
+      function selectedHomeworkRecordsForDownload() {
+        return homeworks.map(row => {
+          const homeworkSelected = selectedHomeworks.has(String(row.id));
+          const assignment = homeworkSelected
+            ? (row.assignment || []).map((item, idx) => withProgressKey(item, assignmentKey(row.id, item, idx)))
+            : (row.assignment || [])
+              .map((item, idx) => ({ item, key: assignmentKey(row.id, item, idx) }))
+              .filter(entry => selectedAssignments.has(entry.key))
+              .map(entry => withProgressKey(entry.item, entry.key));
+          const submission = homeworkSelected
+            ? (row.submission || []).map((item, idx) => withProgressKey(item, submissionKey(row.id, item, idx)))
+            : (row.submission || [])
+              .map((item, idx) => ({ item, key: submissionKey(row.id, item, idx) }))
+              .filter(entry => selectedSubmissions.has(entry.key))
+              .map(entry => withProgressKey(entry.item, entry.key));
+          if (!homeworkSelected && assignment.length === 0 && submission.length === 0) return null;
+          return { id: row.id, title: row.title, assignment, submission };
+        }).filter(Boolean);
+      }
+
+      function selectedCoursewareRecordsForDownload() {
+        return coursewares.map(row => {
+          const coursewareSelected = selected.has(String(row.id));
+          const materials = coursewareSelected
+            ? (row.materials || []).map((item, idx) => withProgressKey(item, materialKey(row.id, item, idx)))
+            : (row.materials || [])
+              .map((item, idx) => ({ item, key: materialKey(row.id, item, idx) }))
+              .filter(entry => selectedMaterials.has(entry.key))
+              .map(entry => withProgressKey(entry.item, entry.key));
+          if (!coursewareSelected && materials.length === 0) return null;
+          return { id: row.id, title: row.title, materials };
+        }).filter(Boolean);
+      }
+
+      function allHomeworkRecordsForDownload() {
+        return homeworks.map(row => ({
+          id: row.id,
+          title: row.title,
+          assignment: (row.assignment || []).map((item, idx) => withProgressKey(item, assignmentKey(row.id, item, idx))),
+          submission: (row.submission || []).map((item, idx) => withProgressKey(item, submissionKey(row.id, item, idx)))
+        }));
+      }
+
+      function allCoursewareRecordsForDownload() {
+        return coursewares.map(row => ({
+          id: row.id,
+          title: row.title,
+          materials: (row.materials || []).map((item, idx) => withProgressKey(item, materialKey(row.id, item, idx)))
+        }));
+      }
+
       async function downloadHomeworks(onlySelected) {
         const ids = onlySelected ? Array.from(selectedHomeworks) : [];
         const assignmentIds = onlySelected ? Array.from(selectedAssignments) : [];
@@ -1192,11 +1489,14 @@
           setStatus({ tone: "error", text: "请先勾选要下载的作业或附件" });
           return;
         }
-        await downloadZip("/api/download/homeworks", {
+        await downloadZipStream("/api/download/homeworks/stream", {
           selected_homework_ids: ids,
           selected_assignment_ids: assignmentIds,
-          selected_submission_ids: submissionIds
-        }, "homeworks.zip");
+          selected_submission_ids: submissionIds,
+          records: onlySelected
+            ? selectedHomeworkRecordsForDownload()
+            : (homeworks.length ? allHomeworkRecordsForDownload() : undefined)
+        }, "homeworks.zip", "作业附件下载");
         if (!onlySelected) {
           setSelectedHomeworks(new Set());
           setSelectedAssignments(new Set());
@@ -1211,10 +1511,11 @@
           setStatus({ tone: "error", text: "请先勾选要下载的课件或附件" });
           return;
         }
-        await downloadZip("/api/download/coursewares", {
+        await downloadZipStream("/api/download/coursewares/stream", {
           selected_ids: ids,
-          selected_material_ids: materialIds
-        }, "coursewares.zip");
+          selected_material_ids: materialIds,
+          records: onlySelected ? selectedCoursewareRecordsForDownload() : allCoursewareRecordsForDownload()
+        }, "coursewares.zip", "课件附件下载");
         if (!onlySelected) {
           setSelectedMaterials(new Set());
         }
@@ -1498,7 +1799,8 @@
               onSelectMaterials: selectMaterials,
               onClearMaterials: clearMaterials,
               selectedCount,
-              selectedMaterialCount
+              selectedMaterialCount,
+              downloadStatuses
             })
             : tab === "homeworks"
             ? h(HomeworkPanel, {
@@ -1517,7 +1819,8 @@
               selectedHomeworkCount,
               selectedAssignmentCount,
               selectedSubmissionCount,
-              onSubmitHomework: openSubmit
+              onSubmitHomework: openSubmit,
+              downloadStatuses
             })
             : h(SubmitPanel, {
               rows: homeworks,
@@ -1541,7 +1844,8 @@
       onSelectMaterials,
       onClearMaterials,
       selectedCount,
-      selectedMaterialCount
+      selectedMaterialCount,
+      downloadStatuses
     }) {
       const [expanded, setExpanded] = React.useState(new Set());
 
@@ -1589,6 +1893,10 @@
                 const nDisabled = mats.filter(m => m.dest_dir === null).length;
                 const isSelected = selected.has(String(row.id));
                 const isExpanded = expanded.has(String(row.id));
+                const rowDownloadStatus = aggregateDownloadStatus(
+                  downloadStatuses,
+                  mats.map((m, idx) => materialKey(row.id, m, idx))
+                );
                 return h(React.Fragment, { key: row.id },
                   h("tr", { className: isSelected ? "selected" : "" },
                     h("td", null,
@@ -1601,6 +1909,7 @@
                     ),
                     h("td", null,
                       h("div", { className: "courseware-title" },
+                        h(DownloadStatusIcon, { status: rowDownloadStatus }),
                         h("button", {
                           className: "expand-btn",
                           type: "button",
@@ -1627,6 +1936,7 @@
                         coursewareId: row.id,
                         materials: mats,
                         selectedMaterials,
+                        downloadStatuses,
                         onToggleMaterial,
                         onSelectMaterials,
                         onClearMaterials
@@ -1644,6 +1954,7 @@
       coursewareId,
       materials,
       selectedMaterials,
+      downloadStatuses,
       onToggleMaterial,
       onSelectMaterials,
       onClearMaterials
@@ -1673,7 +1984,9 @@
             materials.map((m, idx) => {
               const skipped = m.dest_dir === null;
               const checked = selectedMaterials.has(materialKey(coursewareId, m, idx));
-              return h("div", { className: "material-item", key: String(m.id || m.url || idx) },
+              const itemStatus = downloadStatusForKey(downloadStatuses, materialKey(coursewareId, m, idx));
+              return h("div", { className: "material-item " + itemStatus, key: String(m.id || m.url || idx) },
+                h(DownloadStatusIcon, { status: itemStatus }),
                 h("input", {
                   className: "row-check",
                   type: "checkbox",
@@ -1710,7 +2023,8 @@
       selectedHomeworkCount,
       selectedAssignmentCount,
       selectedSubmissionCount,
-      onSubmitHomework
+      onSubmitHomework,
+      downloadStatuses
     }) {
       const [expanded, setExpanded] = React.useState(new Set());
 
@@ -1759,6 +2073,13 @@
                 const status = row.status || {};
                 const isSelected = selectedHomeworks.has(String(row.id));
                 const isExpanded = expanded.has(String(row.id));
+                const rowDownloadStatus = aggregateDownloadStatus(
+                  downloadStatuses,
+                  [
+                    ...(row.assignment || []).map((item, idx) => assignmentKey(row.id, item, idx)),
+                    ...(row.submission || []).map((item, idx) => submissionKey(row.id, item, idx))
+                  ]
+                );
                 return h(React.Fragment, { key: row.id },
                   h("tr", { className: isSelected ? "selected" : "" },
                     h("td", null,
@@ -1771,6 +2092,7 @@
                     ),
                     h("td", null,
                       h("div", { className: "courseware-title" },
+                        h(DownloadStatusIcon, { status: rowDownloadStatus }),
                         h("button", {
                           className: "expand-btn",
                           type: "button",
@@ -1800,6 +2122,7 @@
                         submissions: row.submission || [],
                         selectedAssignments,
                         selectedSubmissions,
+                        downloadStatuses,
                         onToggleAssignment,
                         onSelectAssignments,
                         onClearAssignments,
@@ -1822,6 +2145,7 @@
       submissions,
       selectedAssignments,
       selectedSubmissions,
+      downloadStatuses,
       onToggleAssignment,
       onSelectAssignments,
       onClearAssignments,
@@ -1837,6 +2161,7 @@
           selected: selectedAssignments,
           getKey: assignmentKey,
           homeworkId,
+          downloadStatuses,
           onToggle: onToggleAssignment,
           onSelect: onSelectAssignments,
           onClear: onClearAssignments
@@ -1848,6 +2173,7 @@
           selected: selectedSubmissions,
           getKey: submissionKey,
           homeworkId,
+          downloadStatuses,
           onToggle: onToggleSubmission,
           onSelect: onSelectSubmissions,
           onClear: onClearSubmissions
@@ -1984,7 +2310,7 @@
       );
     }
 
-    function FileGroup({ title, empty, files, selected, getKey, homeworkId, onToggle, onSelect, onClear }) {
+    function FileGroup({ title, empty, files, selected, getKey, homeworkId, downloadStatuses, onToggle, onSelect, onClear }) {
       const available = files.filter(file => file.dest_dir !== null).length;
       const selectedCount = files.filter((file, idx) => selected.has(getKey(homeworkId, file, idx))).length;
       return h("div", { className: "materials-group" },
@@ -2009,8 +2335,11 @@
           : h("div", { className: "materials-list" },
             files.map((file, idx) => {
               const skipped = file.dest_dir === null;
-              const checked = selected.has(getKey(homeworkId, file, idx));
-              return h("div", { className: "material-item", key: String(file.id || file.url || idx) },
+              const key = getKey(homeworkId, file, idx);
+              const checked = selected.has(key);
+              const itemStatus = downloadStatusForKey(downloadStatuses, key);
+              return h("div", { className: "material-item " + itemStatus, key: String(file.id || file.url || idx) },
+                h(DownloadStatusIcon, { status: itemStatus }),
                 h("input", {
                   className: "row-check",
                   type: "checkbox",

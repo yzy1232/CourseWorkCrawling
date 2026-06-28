@@ -532,6 +532,7 @@ def prepare_download(
                     DownloadTask(
                         id=tid, name=a["name"], url=a["url"],
                         dest_dir=Path(dest), hw_title=r["title"], kind=kind,
+                        progress_key=str(a.get("progress_key") or "") or None,
                         total_bytes=int(a.get("size") or 0),
                     )
                 )
@@ -694,6 +695,7 @@ def prepare_courseware_download(
                 DownloadTask(
                     id=tid, name=a["name"], url=a["url"],
                     dest_dir=Path(dest), hw_title=r["title"], kind="material",
+                    progress_key=str(a.get("progress_key") or "") or None,
                     total_bytes=int(a.get("size") or 0),
                 )
             )

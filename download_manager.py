@@ -37,6 +37,7 @@ class DownloadTask:
     dest_dir: Path
     hw_title: str
     kind: str                       # "assignment" / "submission"
+    progress_key: str | None = None
     status: str = "pending"
     done_bytes: int = 0
     total_bytes: int = 0
