@@ -296,6 +296,100 @@ def _iter_homework_pages(
         raise last_err
 
 
+_UNFINISHED_STATUS_PARAMS = [
+    {"status": "unfinished"},
+    {"status": "unsubmitted"},
+    {"status": "not_submitted"},
+    {"submit_status": "unsubmitted"},
+    {"submit_status": "not_submitted"},
+    {"is_submitted": "false"},
+    {"submitted": "false"},
+]
+
+
+def list_unfinished_homeworks(
+    session: requests.Session,
+    course_id: str,
+) -> list[dict]:
+    """用平台的“未完成/未提交”列表接口返回轻量作业项。
+
+    这里不拉作业详情，也不逐个拉“我的提交”。候选端点都带未完成过滤参数；
+    若当前 TronClass 版本不支持这些端点，会抛出最后一个接口错误。
+    """
+    candidates = [
+        "api/courses/{cid}/homework-activities",
+        "api/course/{cid}/homework-list",
+        "api/courses/{cid}/activities",
+    ]
+    last_err: Exception | None = None
+    for tmpl in candidates:
+        path = tmpl.format(cid=course_id)
+        for params in _UNFINISHED_STATUS_PARAMS:
+            try:
+                data = _get_json(
+                    session,
+                    path,
+                    page=1,
+                    page_size=100,
+                    pageSize=100,
+                    pageIndex=1,
+                    **params,
+                )
+            except ApiError as exc:
+                if "端点不存在 (404)" not in str(exc):
+                    last_err = exc
+                continue
+            items = _extract_list(data)
+            if items:
+                return _normalize_unfinished_items(items, course_id)
+
+            total = _extract_total(data)
+            if total == 0:
+                return []
+
+    if last_err:
+        raise last_err
+    return []
+
+
+def _normalize_unfinished_items(items: list[dict], course_id: str) -> list[dict]:
+    out: list[dict] = []
+    seen: set[Any] = set()
+    for it in items:
+        if not _looks_like_homework(it):
+            continue
+        status = homework_status(it)
+        if status.get("submitted"):
+            continue
+        hid = _item_key(it)
+        if hid is None or hid in seen:
+            continue
+        seen.add(hid)
+        title = (
+            it.get("title")
+            or it.get("name")
+            or it.get("activity_name")
+            or f"homework_{hid}"
+        )
+        out.append(
+            {
+                "id": hid,
+                "title": str(title).strip(),
+                "deadline": status.get("deadline"),
+                "course_id": course_id,
+                "raw": it,
+            }
+        )
+    return out
+
+
+def _looks_like_homework(it: dict) -> bool:
+    typ = str(_first(it, "type", "activity_type", "activityType", "kind") or "").lower()
+    if typ and not any(word in typ for word in ("homework", "assignment", "作业")):
+        return False
+    return _item_key(it) is not None
+
+
 def _item_key(it: dict) -> Any:
     return it.get("id") or it.get("activity_id") or it.get("homework_id")
 
@@ -305,7 +399,17 @@ def _extract_list(data: Any) -> list[dict]:
     if isinstance(data, list):
         return [x for x in data if isinstance(x, dict)]
     if isinstance(data, dict):
-        for key in ("homework_activities", "activities", "homeworks", "data", "list", "items", "results"):
+        for key in (
+            "homework_activities",
+            "activities",
+            "homeworks",
+            "todos",
+            "tasks",
+            "data",
+            "list",
+            "items",
+            "results",
+        ):
             val = data.get(key)
             if isinstance(val, list):
                 return [x for x in val if isinstance(x, dict)]

@@ -18,6 +18,7 @@ import traceback
 import uuid
 import webbrowser
 import zipfile
+from datetime import datetime, time as datetime_time
 from email.parser import BytesParser
 from email.policy import default as email_default_policy
 from io import BytesIO
@@ -27,11 +28,13 @@ from typing import Any
 
 import cache
 from core import (
+    authenticate,
     coursewares_with_cache,
     courses_with_cache,
     homeworks_with_cache,
     iter_courseware_overview,
     iter_homework_overview,
+    list_unsubmitted,
     prepare_courseware_download,
     prepare_download,
     submit_homework_files,
@@ -43,6 +46,7 @@ WEB_ROOT = ROOT / "web"
 ZIP_CACHE_DIR = ROOT / ".cache" / "zips"
 HOST = "127.0.0.1"
 PORT = 8765
+PORT_SCAN_LIMIT = 20
 
 
 class SinglePortThreadingHTTPServer(ThreadingHTTPServer):
@@ -94,6 +98,10 @@ class ApiHandler(SimpleHTTPRequestHandler):
                 self._stream_overview(payload, kind="coursewares")
                 return
 
+            if self.path == "/api/homeworks/unfinished/stream":
+                self._stream_unfinished_homeworks(payload)
+                return
+
             if self.path == "/api/download/homeworks/stream":
                 self._stream_download(payload, kind="homeworks")
                 return
@@ -121,6 +129,10 @@ class ApiHandler(SimpleHTTPRequestHandler):
                         "logs": log_lines,
                     }
                 )
+                return
+
+            if self.path == "/api/homeworks/unfinished":
+                self._unfinished_homeworks(payload, log_lines, log)
                 return
 
             if self.path == "/api/homeworks":
@@ -303,6 +315,343 @@ class ApiHandler(SimpleHTTPRequestHandler):
                 "logs": logs,
             }
         )
+
+    def _unfinished_homeworks(
+        self,
+        payload: dict[str, Any],
+        logs: list[str],
+        log: Any,
+    ) -> None:
+        refresh = bool(payload.get("refresh", False))
+        username, password, _course = self._creds(
+            payload,
+            need_course=False,
+            need_password=refresh,
+        )
+        if not refresh:
+            cached_payload, cached_at = cache.load("unfinished_homeworks", username)
+            if isinstance(cached_payload, dict):
+                cache_stale = cache.is_unfinished_homework_stale(cached_at)
+                if not cache_stale or not password:
+                    response = dict(cached_payload)
+                    response["homeworks"] = _filter_unexpired_unfinished(
+                        cached_payload.get("homeworks") or []
+                    )
+                    response["count"] = len(response["homeworks"])
+                    response["cached_at"] = cached_at.isoformat() if cached_at else None
+                    response["stale"] = cache_stale
+                    response["logs"] = logs
+                    self._json(response)
+                    return
+
+        courses = _normalize_courses(payload.get("courses"))
+        session = None
+
+        def get_session() -> Any:
+            nonlocal session
+            if session is None:
+                if not password:
+                    raise ValueError("缺少账号或密码")
+                session = authenticate(username, password, log=log)
+            return session
+
+        courses_stale = False
+        if not courses:
+            if not refresh:
+                cached_courses, cached_at = cache.load("courses", username)
+                if cached_courses is not None:
+                    courses = _normalize_courses(cached_courses)
+                    courses_stale = cache.is_stale(cached_at)
+            if not courses:
+                courses, _cached_at, courses_stale = courses_with_cache(
+                    username,
+                    password,
+                    refresh=True,
+                    session=get_session(),
+                    log=log,
+                )
+                courses = _normalize_courses(courses)
+
+        items: list[dict[str, Any]] = []
+        errors: list[dict[str, str]] = []
+        scanned = 0
+        stale = courses_stale
+
+        for course in courses:
+            course_id = str(course.get("id") or "").strip()
+            if not course_id:
+                continue
+            course_name = str(course.get("name") or f"课程 {course_id}")
+            try:
+                records = list_unsubmitted(
+                    username,
+                    password,
+                    course_id,
+                    session=get_session(),
+                    log=log,
+                )
+                scanned += 1
+                for record in records or []:
+                    deadline = record.get("deadline") or ""
+                    if _is_expired_deadline(deadline):
+                        continue
+                    items.append(
+                        {
+                            "id": record.get("id"),
+                            "title": record.get("title") or "未命名作业",
+                            "deadline": deadline,
+                            "date": deadline,
+                            "course_id": course_id,
+                            "course_name": course_name,
+                        }
+                    )
+            except Exception as exc:  # noqa: BLE001 单门课失败不影响其它课程展示
+                errors.append(
+                    {
+                        "course_id": course_id,
+                        "course_name": course_name,
+                        "error": str(exc),
+                    }
+                )
+
+        items.sort(
+            key=lambda item: (
+                str(item.get("deadline") or "9999-12-31 23:59:59"),
+                str(item.get("course_name") or ""),
+                str(item.get("title") or ""),
+            )
+        )
+        response = {
+            "homeworks": items,
+            "courses_count": len(courses),
+            "scanned_count": scanned,
+            "errors": errors,
+            "stale": stale,
+            "logs": logs,
+        }
+        if not errors:
+            cache.save(
+                "unfinished_homeworks",
+                username,
+                {
+                    "homeworks": items,
+                    "courses_count": len(courses),
+                    "scanned_count": scanned,
+                    "errors": [],
+                },
+            )
+            _data, cached_at = cache.load("unfinished_homeworks", username)
+            response["cached_at"] = cached_at.isoformat() if cached_at else None
+            response["stale"] = False
+        self._json(response)
+
+    def _stream_unfinished_homeworks(self, payload: dict[str, Any]) -> None:
+        refresh = bool(payload.get("refresh", False))
+        username, password, _course = self._creds(
+            payload,
+            need_course=False,
+            need_password=refresh,
+        )
+        kind = "unfinished_homeworks"
+
+        if not refresh:
+            cached_payload, cached_at = cache.load("unfinished_homeworks", username)
+            if isinstance(cached_payload, dict):
+                cache_stale = cache.is_unfinished_homework_stale(cached_at)
+                if not cache_stale or not password:
+                    rows = _filter_unexpired_unfinished(
+                        cached_payload.get("homeworks") or []
+                    )
+                    errors = cached_payload.get("errors") or []
+                    self._ndjson_headers()
+                    self._ndjson(
+                        {
+                            "type": "start",
+                            "kind": kind,
+                            "courses_count": cached_payload.get("courses_count") or 0,
+                            "count": len(rows),
+                            "cached": True,
+                        }
+                    )
+                    for idx, row in enumerate(rows, 1):
+                        self._ndjson(
+                            {
+                                "type": "item",
+                                "kind": kind,
+                                "index": idx,
+                                "count": len(rows),
+                                "record": row,
+                                "cached": True,
+                            }
+                        )
+                    self._ndjson(
+                        {
+                            "type": "done",
+                            "kind": kind,
+                            "homeworks": rows,
+                            "errors": errors,
+                            "courses_count": cached_payload.get("courses_count") or 0,
+                            "scanned_count": cached_payload.get("scanned_count") or 0,
+                            "count": len(rows),
+                            "cached_at": cached_at.isoformat() if cached_at else None,
+                            "stale": cache_stale,
+                            "cached": True,
+                            "message": "未完成作业缓存已读取",
+                        }
+                    )
+                    return
+            if not password:
+                raise ValueError("缺少账号或密码")
+
+        courses = _normalize_courses(payload.get("courses"))
+        self._ndjson_headers()
+
+        def emit(event: dict[str, Any]) -> None:
+            self._ndjson(event)
+
+        def stream_log(msg: str) -> None:
+            emit({"type": "log", "kind": kind, "message": msg})
+
+        session = None
+
+        def get_session() -> Any:
+            nonlocal session
+            if session is None:
+                if not password:
+                    raise ValueError("缺少账号或密码")
+                session = authenticate(username, password, log=stream_log)
+            return session
+
+        try:
+            courses_stale = False
+            if not courses:
+                if not refresh:
+                    cached_courses, cached_at = cache.load("courses", username)
+                    if cached_courses is not None:
+                        courses = _normalize_courses(cached_courses)
+                        courses_stale = cache.is_stale(cached_at)
+                if not courses:
+                    courses, _cached_at, courses_stale = courses_with_cache(
+                        username,
+                        password,
+                        refresh=True,
+                        session=get_session(),
+                        log=stream_log,
+                    )
+                    courses = _normalize_courses(courses)
+
+            emit(
+                {
+                    "type": "start",
+                    "kind": kind,
+                    "courses_count": len(courses),
+                    "count": 0,
+                    "cached": False,
+                }
+            )
+
+            items: list[dict[str, Any]] = []
+            errors: list[dict[str, str]] = []
+            scanned = 0
+
+            for course_index, course in enumerate(courses, 1):
+                course_id = str(course.get("id") or "").strip()
+                if not course_id:
+                    continue
+                course_name = str(course.get("name") or f"课程 {course_id}")
+                try:
+                    records = list_unsubmitted(
+                        username,
+                        password,
+                        course_id,
+                        session=get_session(),
+                        log=stream_log,
+                    )
+                    scanned += 1
+                    course_items: list[dict[str, Any]] = []
+                    for record in records or []:
+                        deadline = record.get("deadline") or ""
+                        if _is_expired_deadline(deadline):
+                            continue
+                        item = {
+                            "id": record.get("id"),
+                            "title": record.get("title") or "未命名作业",
+                            "deadline": deadline,
+                            "date": deadline,
+                            "course_id": course_id,
+                            "course_name": course_name,
+                        }
+                        items.append(item)
+                        course_items.append(item)
+                        emit(
+                            {
+                                "type": "item",
+                                "kind": kind,
+                                "record": item,
+                                "course_index": course_index,
+                                "courses_count": len(courses),
+                                "index": len(items),
+                            }
+                        )
+                    emit(
+                        {
+                            "type": "course_done",
+                            "kind": kind,
+                            "course_id": course_id,
+                            "course_name": course_name,
+                            "course_index": course_index,
+                            "courses_count": len(courses),
+                            "count": len(course_items),
+                        }
+                    )
+                except Exception as exc:  # noqa: BLE001 单门课失败不影响其它课程展示
+                    error = {
+                        "course_id": course_id,
+                        "course_name": course_name,
+                        "error": str(exc),
+                    }
+                    errors.append(error)
+                    emit({"type": "course_error", "kind": kind, **error})
+
+            items.sort(
+                key=lambda item: (
+                    str(item.get("deadline") or "9999-12-31 23:59:59"),
+                    str(item.get("course_name") or ""),
+                    str(item.get("title") or ""),
+                )
+            )
+            response = {
+                "type": "done",
+                "kind": kind,
+                "homeworks": items,
+                "courses_count": len(courses),
+                "scanned_count": scanned,
+                "errors": errors,
+                "count": len(items),
+                "stale": courses_stale,
+                "cached": False,
+                "message": f"未完成作业已读取（{len(items)} 个）",
+            }
+            if not errors:
+                cache.save(
+                    "unfinished_homeworks",
+                    username,
+                    {
+                        "homeworks": items,
+                        "courses_count": len(courses),
+                        "scanned_count": scanned,
+                        "errors": [],
+                    },
+                )
+                _data, cached_at = cache.load("unfinished_homeworks", username)
+                response["cached_at"] = cached_at.isoformat() if cached_at else None
+                response["stale"] = False
+            emit(response)
+        except (BrokenPipeError, ConnectionResetError):
+            return
+        except Exception as exc:  # noqa: BLE001 流式接口已发响应头，只能用事件返回错误
+            traceback.print_exc()
+            emit({"type": "error", "kind": kind, "error": str(exc)})
 
     def _creds(
         self,
@@ -744,6 +1093,82 @@ def _records_from_payload(payload: dict[str, Any]) -> list[dict] | None:
     return records
 
 
+def _normalize_courses(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    courses: list[dict[str, Any]] = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        course_id = item.get("id") or item.get("course_id")
+        if course_id in (None, ""):
+            continue
+        courses.append(
+            {
+                "id": course_id,
+                "name": (
+                    item.get("name")
+                    or item.get("course_name")
+                    or item.get("title")
+                    or f"课程 {course_id}"
+                ),
+            }
+        )
+    return courses
+
+
+def _parse_deadline(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+
+    normalized = text.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(normalized)
+        if len(text) == 10 and text[4] == "-" and text[7] == "-":
+            return datetime.combine(parsed.date(), datetime_time(23, 59, 59))
+        return parsed
+    except ValueError:
+        pass
+
+    for fmt in (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y/%m/%d %H:%M:%S",
+        "%Y/%m/%d %H:%M",
+    ):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d"):
+        try:
+            parsed = datetime.strptime(text, fmt)
+            return datetime.combine(parsed.date(), datetime_time(23, 59, 59))
+        except ValueError:
+            continue
+
+    return None
+
+
+def _is_expired_deadline(value: Any) -> bool:
+    deadline = _parse_deadline(value)
+    if deadline is None:
+        return False
+    now = datetime.now(deadline.tzinfo) if deadline.tzinfo else datetime.now()
+    return deadline < now
+
+
+def _filter_unexpired_unfinished(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        row
+        for row in rows
+        if isinstance(row, dict)
+        if not _is_expired_deadline(row.get("deadline") or row.get("date"))
+    ]
+
+
 def _cleanup_zip_cache(max_age_seconds: int = 24 * 60 * 60) -> None:
     if not ZIP_CACHE_DIR.exists():
         return
@@ -774,8 +1199,21 @@ def main() -> int:
     if not (WEB_ROOT / "index.html").exists():
         print("web/index.html 不存在")
         return 2
-    httpd = SinglePortThreadingHTTPServer((HOST, PORT), ApiHandler)
-    url = f"http://{HOST}:{PORT}/"
+    httpd = None
+    port = PORT
+    for candidate in range(PORT, PORT + PORT_SCAN_LIMIT):
+        try:
+            httpd = SinglePortThreadingHTTPServer((HOST, candidate), ApiHandler)
+            port = candidate
+            break
+        except OSError as exc:
+            if getattr(exc, "winerror", None) != 10048 and getattr(exc, "errno", None) not in (48, 98, 10048):
+                raise
+    if httpd is None:
+        print(f"{HOST}:{PORT}-{PORT + PORT_SCAN_LIMIT - 1} 均被占用，无法启动")
+        return 3
+
+    url = f"http://{HOST}:{port}/"
     print(f"React GUI: {url}")
     if "--no-open" not in sys.argv:
         webbrowser.open(url)

@@ -3,8 +3,9 @@
 缓存文件位于 .cache/data/{kind}_{key}.json，结构：
     {"cached_at": "2026-06-02T12:00:00", "data": <任意可 JSON 序列化对象>}
 
-kind 约定："courses"（key=用户名）、"homeworks"（key=course_id）。
-超过 STALE_DAYS 天的缓存视为可能已更新，由调用方据此提示用户刷新。
+kind 约定："courses"（key=用户名）、"homeworks"（key=course_id）、
+"unfinished_homeworks"（key=用户名）。
+超过 STALE_DAYS 天的缓存视为可能已更新；未完成作业缓存半天过期。
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ from typing import Any
 
 CACHE_DIR = Path(".cache") / "data"
 STALE_DAYS = 3
+UNFINISHED_HOMEWORK_STALE_DAYS = 0.5
 
 _SAFE_KEY = re.compile(r"[^A-Za-z0-9_.-]")
 
@@ -62,7 +64,12 @@ def age_days(cached_at: datetime | None) -> float | None:
     return (datetime.now() - cached_at).total_seconds() / 86400.0
 
 
-def is_stale(cached_at: datetime | None, days: int = STALE_DAYS) -> bool:
+def is_stale(cached_at: datetime | None, days: float = STALE_DAYS) -> bool:
     """缓存是否已超过 days 天（无时间戳视为陈旧）。"""
     age = age_days(cached_at)
     return age is None or age > days
+
+
+def is_unfinished_homework_stale(cached_at: datetime | None) -> bool:
+    """未完成作业缓存是否超过半天。"""
+    return is_stale(cached_at, UNFINISHED_HOMEWORK_STALE_DAYS)

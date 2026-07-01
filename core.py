@@ -27,6 +27,7 @@ from crawler import (
     list_courses,
     list_coursewares,
     list_homeworks,
+    list_unfinished_homeworks,
     submit_homework,
     upload_file,
     verify_logged_in,
@@ -847,21 +848,17 @@ def list_unsubmitted(
     log: Logger = _noop,
 ) -> list[dict]:
     """返回该课程中“未提交”的作业概览 [{id, title, deadline}]。"""
-    result = run_download(
-        username, password, course_id,
-        download_submissions=True, list_only=True,
-        session=session, log=log,
-    )
-    out = []
-    for r in result["homeworks"]:
-        st = r.get("status") or {}
-        if not st.get("submitted"):
-            out.append({
-                "id": r["id"],
-                "title": r["title"],
-                "deadline": st.get("deadline"),
-            })
-    return out
+    if session is None:
+        session = authenticate(username, password, log=log)
+    log(f"获取课程 {course_id} 的未提交作业 ...")
+    return [
+        {
+            "id": item.get("id"),
+            "title": item.get("title") or "未命名作业",
+            "deadline": item.get("deadline"),
+        }
+        for item in list_unfinished_homeworks(session, course_id)
+    ]
 
 
 def submit_homework_files(

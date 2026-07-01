@@ -175,6 +175,15 @@
       background: #e6f4f7;
     }
 
+    tr.clickable-row {
+      cursor: pointer;
+    }
+
+    tr.clickable-row:focus-visible td {
+      outline: 2px solid var(--brand);
+      outline-offset: -2px;
+    }
+
     @keyframes row-in {
       from { opacity: 0; transform: translateY(7px); }
       to { opacity: 1; transform: translateY(0); }
@@ -294,6 +303,15 @@
       align-items: center;
       gap: 8px;
       flex-wrap: wrap;
+    }
+
+    .course-home-body {
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(360px, 440px);
+      gap: 16px;
+      align-items: stretch;
+      overflow: hidden;
     }
 
     .course-grid {
@@ -681,6 +699,65 @@
       line-height: 1.45;
     }
 
+    .unfinished-panel {
+      min-height: 0;
+      align-self: start;
+      max-height: min(100%, calc(100vh - 126px));
+      grid-template-rows: auto minmax(0, auto) auto;
+    }
+
+    .unfinished-panel .panel-head {
+      align-items: flex-start;
+    }
+
+    .unfinished-table-wrap {
+      min-height: 132px;
+      max-height: max(180px, calc(100vh - 236px));
+      overflow: auto;
+    }
+
+    .unfinished-table th,
+    .unfinished-table td {
+      padding: 10px 12px;
+    }
+
+    .unfinished-table tbody tr {
+      cursor: pointer;
+    }
+
+    .unfinished-course {
+      color: var(--muted-strong);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .unfinished-date {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.4;
+      white-space: normal;
+    }
+
+    .unfinished-title {
+      min-width: 140px;
+      color: var(--ink);
+      font-weight: 800;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .unfinished-errors {
+      padding: 9px 12px;
+      border-top: 1px solid var(--line);
+      background: var(--warn-soft);
+      color: var(--warn);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
     .courseware-title {
       display: flex;
       align-items: flex-start;
@@ -917,6 +994,19 @@
         grid-template-columns: 1fr;
       }
 
+      .course-home-body {
+        grid-template-columns: 1fr;
+        overflow: visible;
+      }
+
+      .unfinished-panel {
+        max-height: none;
+      }
+
+      .unfinished-table-wrap {
+        max-height: min(56vh, 520px);
+      }
+
       .sidebar {
         position: static;
         height: auto;
@@ -946,6 +1036,7 @@
     }
 
     @media (max-width: 620px) {
+      .course-home,
       .sidebar,
       .content {
         padding: 16px;
@@ -1078,7 +1169,66 @@
       );
     }
 
-    function CourseHome({ courses, busy, status, onRefresh, onEnter, onLogout }) {
+    function formatDeadline(value) {
+      const text = String(value || "").trim();
+      return text || "-";
+    }
+
+    function parseDeadlineTime(value) {
+      const text = String(value || "").trim();
+      if (!text) return null;
+
+      const dateOnly = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+      if (dateOnly) {
+        return new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]), 23, 59, 59, 999).getTime();
+      }
+
+      const localTime = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+      if (localTime && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(text)) {
+        return new Date(
+          Number(localTime[1]),
+          Number(localTime[2]) - 1,
+          Number(localTime[3]),
+          Number(localTime[4]),
+          Number(localTime[5]),
+          Number(localTime[6] || 0)
+        ).getTime();
+      }
+
+      const parsed = Date.parse(text.replace(" ", "T"));
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    function isExpiredDeadline(value) {
+      const time = parseDeadlineTime(value);
+      return time !== null && time < Date.now();
+    }
+
+    function filterUnexpiredUnfinishedRows(rows) {
+      return (rows || []).filter(row => row && !isExpiredDeadline(row.deadline || row.date));
+    }
+
+    function sortUnfinishedRows(rows) {
+      return filterUnexpiredUnfinishedRows(rows).sort((a, b) => {
+        const left = String(a.deadline || "9999-12-31 23:59:59") + String(a.course_name || "") + String(a.title || "");
+        const right = String(b.deadline || "9999-12-31 23:59:59") + String(b.course_name || "") + String(b.title || "");
+        return left.localeCompare(right, "zh-CN");
+      });
+    }
+
+    function CourseHome({
+      courses,
+      unfinishedHomeworks,
+      unfinishedLoading,
+      unfinishedErrors,
+      busy,
+      status,
+      onRefresh,
+      onRefreshUnfinished,
+      onEnter,
+      onOpenHomework,
+      onLogout
+    }) {
       const statusClass = "busy-state " + (busy ? "active" : "") + (status.tone === "error" ? " error" : "");
       return h("div", { className: "course-home" },
         h("header", { className: "course-home-head" },
@@ -1098,26 +1248,97 @@
             h("button", { onClick: onLogout, disabled: busy }, "退出登录")
           )
         ),
-        courses.length === 0
-          ? h("section", { className: "panel" },
-            h(EmptyState, { title: "暂无课程数据" },
-              h("button", { type: "button", onClick: onRefresh, disabled: busy, className: "primary" }, "刷新课程")
+        h("main", { className: "course-home-body" },
+          courses.length === 0
+            ? h("section", { className: "panel" },
+              h(EmptyState, { title: "暂无课程数据" },
+                h("button", { type: "button", onClick: onRefresh, disabled: busy, className: "primary" }, "刷新课程")
+              )
             )
-          )
-          : h("section", { className: "course-grid" },
-            courses.map(course => h("article", { className: "course-card", key: course.id },
-              h("div", { className: "course-card-title" },
-                h("strong", null, course.name || "未命名课程"),
-                h("span", null, "课程 ID " + course.id)
-              ),
-              h("button", {
-                type: "button",
-                className: "primary",
-                onClick: () => onEnter(course),
-                disabled: busy
-              }, "进入课程")
-            ))
-          )
+            : h("section", { className: "course-grid" },
+              courses.map(course => h("article", { className: "course-card", key: course.id },
+                h("div", { className: "course-card-title" },
+                  h("strong", null, course.name || "未命名课程"),
+                  h("span", null, "课程 ID " + course.id)
+                ),
+                h("button", {
+                  type: "button",
+                  className: "primary",
+                  onClick: () => onEnter(course),
+                  disabled: busy
+                }, "进入课程")
+              ))
+            ),
+          h(UnfinishedHomeworkPanel, {
+            rows: unfinishedHomeworks,
+            loading: unfinishedLoading,
+            errors: unfinishedErrors,
+            busy,
+            onRefresh: onRefreshUnfinished,
+            onOpenHomework
+          })
+        )
+      );
+    }
+
+    function UnfinishedHomeworkPanel({ rows, loading, errors, busy, onRefresh, onOpenHomework }) {
+      function activate(row) {
+        if (busy || loading) return;
+        onOpenHomework(row);
+      }
+
+      return h("section", { className: "panel unfinished-panel" },
+        h("div", { className: "panel-head" },
+          h("div", { className: "panel-title" },
+            h("h2", null, "未完成作业"),
+            h(Badge, { tone: rows.length ? "warn" : "ok" }, rows.length + " 个")
+          ),
+          h("button", {
+            type: "button",
+            onClick: onRefresh,
+            disabled: busy || loading,
+            className: "subtle"
+          }, loading ? "读取中" : "刷新")
+        ),
+        h("div", { className: "table-wrap unfinished-table-wrap" },
+          rows.length === 0
+            ? loading
+              ? h(LoadingState, { title: "正在读取未完成作业" }, "正在检查各课程的作业状态。")
+              : h(EmptyState, { title: "暂无未完成作业" }, "这里会显示未提交的作业。")
+            : h("table", { className: "unfinished-table" },
+              h("thead", null, h("tr", null,
+                h("th", { style: { width: "32%" } }, "课程"),
+                h("th", { style: { width: "24%" } }, "日期"),
+                h("th", null, "作业名称")
+              )),
+              h("tbody", null, rows.map(row => h("tr", {
+                key: String(row.course_id) + ":" + String(row.id),
+                className: "clickable-row",
+                role: "button",
+                tabIndex: busy || loading ? -1 : 0,
+                title: "进入提交界面",
+                onClick: () => activate(row),
+                onKeyDown: e => {
+                  if (e.key !== "Enter" && e.key !== " ") return;
+                  e.preventDefault();
+                  activate(row);
+                }
+              },
+                h("td", null,
+                  h("div", { className: "unfinished-course", title: row.course_name || "" }, row.course_name || "未命名课程")
+                ),
+                h("td", null,
+                  h("div", { className: "unfinished-date", title: formatDeadline(row.deadline || row.date) }, formatDeadline(row.deadline || row.date))
+                ),
+                h("td", null,
+                  h("div", { className: "unfinished-title", title: row.title || "" }, row.title || "未命名作业")
+                )
+              )))
+            )
+        ),
+        errors.length
+          ? h("div", { className: "unfinished-errors" }, errors.length + " 门课程读取失败，可稍后刷新。")
+          : null
       );
     }
 
@@ -1144,6 +1365,28 @@
         unit += 1;
       }
       return (unit === 0 ? value.toFixed(0) : value.toFixed(value >= 10 ? 1 : 2)) + " " + units[unit];
+    }
+
+    async function readJsonResponse(res, fallback) {
+      const text = await res.text();
+      let data = {};
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch (_) {
+          const isHtml = text.trim().startsWith("<");
+          const detail = isHtml ? "服务端返回了 HTML 错误页，可能仍在使用旧后端端口" : text.slice(0, 160);
+          const err = new Error((fallback || "请求失败") + "（HTTP " + res.status + "：" + detail + "）");
+          err.routeMissing = res.status === 404 && text.includes("Unknown API route");
+          throw err;
+        }
+      }
+      if (!res.ok) {
+        const err = new Error((data && data.error) || fallback || ("请求失败 HTTP " + res.status));
+        err.routeMissing = res.status === 404 && String((data && data.error) || "").includes("Unknown API route");
+        throw err;
+      }
+      return data;
     }
 
     function MaskedPasswordInput({ value, onChange, placeholder }) {
@@ -1271,6 +1514,9 @@
       const [loadingList, setLoadingList] = React.useState(null);
       const [status, setStatus] = React.useState({ tone: "neutral", text: "就绪" });
       const [downloadStatuses, setDownloadStatuses] = React.useState({});
+      const [unfinishedHomeworks, setUnfinishedHomeworks] = React.useState([]);
+      const [unfinishedErrors, setUnfinishedErrors] = React.useState([]);
+      const [unfinishedLoading, setUnfinishedLoading] = React.useState(false);
 
       React.useEffect(() => {
         if (!auth || !auth.username || !auth.password) return;
@@ -1352,13 +1598,17 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username, password, course_id: "", refresh: true })
           });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "登录失败");
+          const data = await readJsonResponse(res, "登录失败");
           const nextAuth = { username, password };
           writeAuthCookie(nextAuth);
           setAuth(nextAuth);
           setForm(f => ({ ...f, username, password, course_id: "" }));
           setCourses(data.courses || []);
+          loadUnfinishedHomeworks(false, {
+            username,
+            password,
+            courses: data.courses || []
+          }).catch(() => {});
           setStatus({ tone: "ok", text: "登录成功" });
         } catch (err) {
           setStatus({ tone: "error", text: err.message });
@@ -1375,6 +1625,9 @@
         setCourses([]);
         setCoursewares([]);
         setHomeworks([]);
+        setUnfinishedHomeworks([]);
+        setUnfinishedErrors([]);
+        setUnfinishedLoading(false);
         setSelected(new Set());
         setSelectedMaterials(new Set());
         setSelectedHomeworks(new Set());
@@ -1386,13 +1639,17 @@
         setStatus({ tone: "neutral", text: "已退出" });
       }
 
-      async function enterCourse(course) {
+      async function enterCourse(course, options) {
+        const opts = options || {};
         const courseId = String(course.id || "");
         if (!courseId) return;
+        const targetTab = opts.tab || "coursewares";
+        const targetSubmitId = opts.submitHomeworkId ? String(opts.submitHomeworkId) : "";
         clearCourseState();
+        setSubmitTarget(targetSubmitId);
         setForm(f => ({ ...f, course_id: courseId }));
-        setTab("coursewares");
-        setStatus({ tone: "neutral", text: "正在进入课程" });
+        setTab(targetTab);
+        setStatus({ tone: "neutral", text: targetSubmitId ? "正在进入提交界面" : "正在进入课程" });
         setBusy(true);
         try {
           const payload = { ...form, course_id: courseId, refresh: false };
@@ -1408,18 +1665,36 @@
               body: JSON.stringify(payload)
             })
           ]);
-          const coursewareData = await coursewareRes.json();
-          const homeworkData = await homeworkRes.json();
-          if (!coursewareRes.ok) throw new Error(coursewareData.error || "课件读取失败");
-          if (!homeworkRes.ok) throw new Error(homeworkData.error || "作业读取失败");
+          const coursewareData = await readJsonResponse(coursewareRes, "课件读取失败");
+          const homeworkData = await readJsonResponse(homeworkRes, "作业读取失败");
+          const nextHomeworks = homeworkData.homeworks || [];
           setCoursewares(coursewareData.coursewares || []);
-          setHomeworks(homeworkData.homeworks || []);
-          setStatus({ tone: "ok", text: "已进入课程" });
+          setHomeworks(nextHomeworks);
+          setStatus({
+            tone: "ok",
+            text: targetSubmitId
+              ? "已进入提交界面"
+              : "已进入课程"
+          });
         } catch (err) {
           setStatus({ tone: "error", text: err.message });
         } finally {
           setBusy(false);
         }
+      }
+
+      async function openUnfinishedHomework(row) {
+        const courseId = String(row.course_id || "").trim();
+        const homeworkId = String(row.id || "").trim();
+        if (!courseId) return;
+        const course = courses.find(item => String(item.id) === courseId) || {
+          id: courseId,
+          name: row.course_name || "当前课程"
+        };
+        await enterCourse(course, {
+          tab: "submit",
+          submitHomeworkId: homeworkId
+        });
       }
 
       function leaveCourse() {
@@ -1444,8 +1719,7 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ ...form, ...extra })
           });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "请求失败");
+          const data = await readJsonResponse(res, "请求失败");
           setStatus({ tone: "ok", text: summarize(data.logs, "操作完成") });
           return data;
         } catch (err) {
@@ -1725,8 +1999,132 @@
 
       async function loadCourses(refresh, override) {
         const data = await api("/api/courses", { ...(override || {}), refresh });
-        setCourses(data.courses || []);
+        const nextCourses = data.courses || [];
+        setCourses(nextCourses);
+        loadUnfinishedHomeworks(false, { ...(override || {}), courses: nextCourses }).catch(() => {});
         setStatus({ tone: data.stale ? "neutral" : "ok", text: refresh ? "课程已刷新" : cacheStatus(data, "课程") });
+      }
+
+      async function loadUnfinishedHomeworks(refresh, override) {
+        setUnfinishedLoading(true);
+        try {
+          const payload = {
+            ...form,
+            ...(override || {}),
+            courses: (override && override.courses) || courses,
+            refresh
+          };
+          const res = await fetch("/api/homeworks/unfinished/stream", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) {
+            const text = await res.text();
+            const routeMissing = res.status === 404 && text.includes("Unknown API route");
+            if (routeMissing) throw new Error("当前后端缺少未完成作业流式接口，请重启 web_gui.py 后刷新页面");
+            let message = "未完成作业读取失败";
+            try {
+              const data = JSON.parse(text);
+              message = data.error || message;
+            } catch (_) {
+              const isHtml = text.trim().startsWith("<");
+              const detail = isHtml ? "服务端返回了 HTML 错误页，可能仍在使用旧后端端口" : text.slice(0, 160);
+              message += "（HTTP " + res.status + "：" + detail + "）";
+            }
+            throw new Error(message);
+          }
+          if (!res.body) throw new Error("当前浏览器不支持流式读取");
+
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let doneEvent = null;
+
+          function handleEvent(event) {
+            if (!event || !event.type) return;
+            if (event.type === "start") {
+              setUnfinishedHomeworks([]);
+              setUnfinishedErrors([]);
+              if (refresh) setStatus({ tone: "neutral", text: "正在读取未完成作业" });
+              return;
+            }
+            if (event.type === "log") {
+              if (refresh) setStatus({ tone: "neutral", text: event.message || "正在读取未完成作业" });
+              return;
+            }
+            if (event.type === "item") {
+              if (event.record) {
+                setUnfinishedHomeworks(prev => sortUnfinishedRows([...prev, event.record]));
+              }
+              if (refresh) {
+                setStatus({
+                  tone: "neutral",
+                  text: "正在读取未完成作业（" + (event.index || 0) + " 个）"
+                });
+              }
+              return;
+            }
+            if (event.type === "course_done") {
+              if (refresh) {
+                setStatus({
+                  tone: "neutral",
+                  text: "已检查 " + (event.course_index || 0) + "/" + (event.courses_count || 0) + " 门课程"
+                });
+              }
+              return;
+            }
+            if (event.type === "course_error") {
+              setUnfinishedErrors(prev => [...prev, {
+                course_id: event.course_id,
+                course_name: event.course_name,
+                error: event.error || "读取失败"
+              }]);
+              return;
+            }
+            if (event.type === "done") {
+              doneEvent = event;
+              setUnfinishedHomeworks(sortUnfinishedRows(event.homeworks || []));
+              setUnfinishedErrors(event.errors || []);
+              return;
+            }
+            if (event.type === "error") {
+              throw new Error(event.error || "未完成作业读取失败");
+            }
+          }
+
+          function handleLine(line) {
+            const trimmed = line.trim();
+            if (!trimmed) return;
+            handleEvent(JSON.parse(trimmed));
+          }
+
+          while (true) {
+            const result = await reader.read();
+            if (result.done) break;
+            buffer += decoder.decode(result.value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+            lines.forEach(handleLine);
+          }
+          buffer += decoder.decode();
+          handleLine(buffer);
+
+          if (!doneEvent) throw new Error("未完成作业读取中断");
+          if (refresh) {
+            setStatus({
+              tone: (doneEvent.errors || []).length || doneEvent.stale ? "neutral" : "ok",
+              text: doneEvent.message || ("未完成作业已刷新（" + ((doneEvent.homeworks || []).length) + " 个）")
+            });
+          }
+          return doneEvent;
+        } catch (err) {
+          setUnfinishedErrors([{ error: err.message }]);
+          if (refresh) setStatus({ tone: "error", text: err.message });
+          throw err;
+        } finally {
+          setUnfinishedLoading(false);
+        }
       }
 
       async function loadHomeworks(refresh, override) {
@@ -1907,8 +2305,7 @@
             method: "POST",
             body: payload
           });
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "提交失败");
+          const data = await readJsonResponse(res, "提交失败");
           try {
             await loadHomeworks(true);
           } catch (_) {}
@@ -2066,10 +2463,15 @@
       if (!form.course_id) {
         return h(CourseHome, {
           courses,
+          unfinishedHomeworks,
+          unfinishedLoading,
+          unfinishedErrors,
           busy,
           status,
           onRefresh: () => loadCourses(true),
+          onRefreshUnfinished: () => loadUnfinishedHomeworks(true),
           onEnter: enterCourse,
+          onOpenHomework: openUnfinishedHomework,
           onLogout: logout
         });
       }
@@ -2427,7 +2829,9 @@
                   ]
                 );
                 return h(React.Fragment, { key: row.id },
-                  h("tr", { className: isSelected ? "selected" : "" },
+                  h("tr", {
+                    className: isSelected ? "selected" : ""
+                  },
                     h("td", null,
                       h("input", {
                         className: "row-check",
